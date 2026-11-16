@@ -1,0 +1,18 @@
+# Godot
+.godot/
+*.translation
+export_credentials.cfg
+
+# Builds e binários (vão para Releases, não para o git)
+builds/
+*.apk
+*.aab
+*.idsig
+*.exe
+*.zip
+Godot_v*
+*.x86_64
+
+# Chaves de assinatura
+*.keystore
+*.jks

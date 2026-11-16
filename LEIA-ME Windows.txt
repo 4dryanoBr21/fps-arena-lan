@@ -1,0 +1,41 @@
+﻿FPS ARENA LAN - COMO JOGAR NO WINDOWS
+=====================================
+
+Requisitos: Windows 10 ou 11 (64 bits) e placa de vídeo com Vulkan, DirectX 12
+ou OpenGL 3.3. O jogo escolhe sozinho o que funcionar no seu PC.
+
+1) ABRIR
+   Dê dois cliques em FPSArenaLAN.exe. Não precisa instalar nada.
+   Se o Windows mostrar "O Windows protegeu o computador" (SmartScreen),
+   clique em "Mais informações" e depois em "Executar assim mesmo".
+   Isso aparece porque o .exe não tem assinatura digital paga.
+
+2) HOSPEDAR (quem cria a partida)
+   Escolha o mapa e clique em "Host LAN".
+   Quando o Firewall do Windows perguntar, marque "Redes privadas" e clique
+   em "Permitir acesso". Sem isso, ninguém consegue entrar.
+   Para saber o seu IP: abra o Prompt de Comando, digite  ipconfig  e
+   procure "Endereço IPv4" (algo como 192.168.0.15).
+
+3) ENTRAR (quem joga junto)
+   Digite o IP do host no campo de endereço e clique em "Entrar (Join)".
+   Todos precisam estar na mesma rede (mesmo roteador/Wi-Fi).
+   Windows e Linux jogam juntos sem problema.
+
+4) TESTAR SOZINHO NO MESMO PC
+   Dê dois cliques em "Testar 2 janelas.bat": numa janela clique em
+   "Host LAN" e na outra em "Entrar (Join)" com 127.0.0.1.
+
+CONTROLES
+   WASD mover | Espaço pular | Clique esquerdo atirar
+   ESC liberar o mouse (abre Configurações e Sair da partida)
+
+NÃO CONSEGUE CONECTAR?
+   - Confira se a rede do Windows está como "Privada"
+     (Configurações > Rede e Internet > propriedades da rede).
+   - Libere o jogo no firewall: Painel de Controle > Firewall do Windows
+     Defender > Permitir um aplicativo > marque FPSArenaLAN em "Privada".
+   - A porta padrão é 7777 (UDP). Se mudar, todos precisam usar a mesma.
+
+As configurações ficam salvas em:
+   %APPDATA%\Godot\app_userdata\FPS Arena LAN\settings.cfg

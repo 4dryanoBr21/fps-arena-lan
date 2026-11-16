@@ -1,0 +1,36 @@
+FPS ARENA LAN - COMO JOGAR NO ANDROID
+=====================================
+
+Requisitos: Android 7 ou mais novo (64 ou 32 bits, ARM). Celulares com
+Vulkan usam o renderizador Mobile; os outros caem sozinhos para OpenGL ES 3.
+
+1) INSTALAR
+   Copie FPSArenaLAN.apk para o celular e abra o arquivo.
+   O Android vai pedir para "permitir instalar apps desta fonte": permita
+   (o app não está na Play Store, por isso o aviso).
+   Pelo computador, com o celular no USB e a depuração USB ligada:
+       adb install -r FPSArenaLAN.apk
+
+2) HOSPEDAR (quem cria a partida)
+   Escolha o mapa e toque em "Host LAN". O IP do celular aparece na tela
+   (algo como 192.168.0.15); passe para quem vai entrar.
+
+3) ENTRAR (quem joga junto)
+   Digite o IP do host e toque em "Entrar (Join)".
+   Todos precisam estar no mesmo Wi-Fi. Celular, Windows e Linux jogam juntos.
+
+CONTROLES (TOQUE)
+   Metade esquerda da tela: joystick (encoste o dedo onde quiser e arraste)
+   Metade direita: arraste para mirar
+   Botão vermelho: atirar (segure para atirar sem parar; dá para mirar
+                   arrastando o mesmo dedo)
+   Botão azul: pular
+   Botão de pausa (no alto) ou "voltar" do Android: pausa, Configurações
+                   e Sair da partida
+   A sensibilidade da mira fica em Configurações.
+
+NÃO CONSEGUE CONECTAR?
+   - Confira se todos estão no mesmo Wi-Fi (rede de visitantes e alguns
+     roteadores isolam os aparelhos entre si).
+   - Dados móveis não funcionam: é só rede local.
+   - A porta padrão é 7777 (UDP). Se mudar, todos precisam usar a mesma.
