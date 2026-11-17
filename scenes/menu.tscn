@@ -1,0 +1,244 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/menu.gd" id="1_menu"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_panel"]
+bg_color = Color(0.08, 0.09, 0.12, 0.9)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_list"]
+bg_color = Color(0.04, 0.05, 0.07, 0.8)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+content_margin_left = 6.0
+content_margin_top = 6.0
+content_margin_right = 6.0
+content_margin_bottom = 6.0
+
+[node name="Menu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_menu")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.35)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(720, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_panel")
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 18
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "FPS Arena LAN"
+horizontal_alignment = 1
+
+[node name="NameRow" type="HBoxContainer" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="NameLabel" type="Label" parent="Center/Panel/Margin/VBox/NameRow"]
+layout_mode = 2
+text = "Seu nome"
+
+[node name="NameEdit" type="LineEdit" parent="Center/Panel/Margin/VBox/NameRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Jogador"
+max_length = 16
+
+[node name="ProfileRow" type="HBoxContainer" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ProfileLabel" type="Label" parent="Center/Panel/Margin/VBox/ProfileRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+text = "Nível 1 · 0 moedas"
+autowrap_mode = 3
+
+[node name="ShopButton" type="Button" parent="Center/Panel/Margin/VBox/ProfileRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 36)
+layout_mode = 2
+text = "Arsenal"
+
+[node name="HabitsButton" type="Button" parent="Center/Panel/Margin/VBox/ProfileRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 36)
+layout_mode = 2
+text = "Hábitos (IA)"
+
+[node name="Columns" type="HBoxContainer" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="Create" type="VBoxContainer" parent="Center/Panel/Margin/VBox/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="CreateTitle" type="Label" parent="Center/Panel/Margin/VBox/Columns/Create"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.85, 1, 1)
+text = "Criar partida"
+
+[node name="MapLabel" type="Label" parent="Center/Panel/Margin/VBox/Columns/Create"]
+layout_mode = 2
+text = "Mapa"
+
+[node name="MapOption" type="OptionButton" parent="Center/Panel/Margin/VBox/Columns/Create"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+
+[node name="BotsRow" type="HBoxContainer" parent="Center/Panel/Margin/VBox/Columns/Create"]
+layout_mode = 2
+
+[node name="BotsLabel" type="Label" parent="Center/Panel/Margin/VBox/Columns/Create/BotsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Bots"
+
+[node name="BotsSpin" type="SpinBox" parent="Center/Panel/Margin/VBox/Columns/Create/BotsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 36)
+layout_mode = 2
+max_value = 6.0
+
+[node name="PortRow" type="HBoxContainer" parent="Center/Panel/Margin/VBox/Columns/Create"]
+layout_mode = 2
+
+[node name="PortLabel" type="Label" parent="Center/Panel/Margin/VBox/Columns/Create/PortRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Porta"
+
+[node name="PortEdit" type="LineEdit" parent="Center/Panel/Margin/VBox/Columns/Create/PortRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 36)
+layout_mode = 2
+text = "7777"
+placeholder_text = "7777"
+virtual_keyboard_type = 2
+
+[node name="HostButton" type="Button" parent="Center/Panel/Margin/VBox/Columns/Create"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Criar partida (Host)"
+
+[node name="Join" type="VBoxContainer" parent="Center/Panel/Margin/VBox/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="JoinTitle" type="Label" parent="Center/Panel/Margin/VBox/Columns/Join"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.85, 1, 1)
+text = "Entrar numa partida"
+
+[node name="ServerPanel" type="PanelContainer" parent="Center/Panel/Margin/VBox/Columns/Join"]
+custom_minimum_size = Vector2(0, 124)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_list")
+
+[node name="ServerScroll" type="ScrollContainer" parent="Center/Panel/Margin/VBox/Columns/Join/ServerPanel"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="ServerList" type="VBoxContainer" parent="Center/Panel/Margin/VBox/Columns/Join/ServerPanel/ServerScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NoServers" type="Label" parent="Center/Panel/Margin/VBox/Columns/Join/ServerPanel/ServerScroll/ServerList"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.6, 0.65, 1)
+text = "Procurando partidas na rede..."
+autowrap_mode = 3
+
+[node name="IPRow" type="HBoxContainer" parent="Center/Panel/Margin/VBox/Columns/Join"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="IPEdit" type="LineEdit" parent="Center/Panel/Margin/VBox/Columns/Join/IPRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "127.0.0.1"
+placeholder_text = "IP do host"
+
+[node name="JoinButton" type="Button" parent="Center/Panel/Margin/VBox/Columns/Join/IPRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 36)
+layout_mode = 2
+text = "Entrar"
+
+[node name="StatusLabel" type="Label" parent="Center/Panel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(600, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.85, 1, 1)
+text = "Desconectado"
+autowrap_mode = 3
+
+[node name="Bottom" type="HBoxContainer" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SettingsButton" type="Button" parent="Center/Panel/Margin/VBox/Bottom"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 36)
+layout_mode = 2
+text = "Configurações"
+
+[node name="Help" type="Label" parent="Center/Panel/Margin/VBox/Bottom"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
+theme_override_font_sizes/font_size = 13
+text = "WASD · Shift corre · Ctrl agacha · Espaço pula · Clique atira · R recarrega · 1/2 arma · Tab placar · ESC pausa"
+autowrap_mode = 3

@@ -1,44 +1,59 @@
+class_name SettingsMenu
 extends Control
 ## Painel de configurações. As mudanças valem na hora; o arquivo é salvo ao fechar.
+## Linhas que não se aplicam à plataforma (tela cheia no celular, opções de
+## toque no PC) ficam escondidas.
 
 signal closed
+signal touch_layout_requested
 
-@onready var sensitivity_slider: HSlider = %SensitivitySlider
-@onready var sensitivity_value: Label = %SensitivityValue
-@onready var invert_y_check: CheckButton = %InvertYCheck
-@onready var fov_slider: HSlider = %FovSlider
-@onready var fov_value: Label = %FovValue
-@onready var volume_slider: HSlider = %VolumeSlider
-@onready var volume_value: Label = %VolumeValue
-@onready var fullscreen_check: CheckButton = %FullscreenCheck
-@onready var vsync_check: CheckButton = %VsyncCheck
-@onready var render_scale_slider: HSlider = %RenderScaleSlider
-@onready var render_scale_value: Label = %RenderScaleValue
-@onready var show_fps_check: CheckButton = %ShowFpsCheck
+## Linha -> chave em Settings. Sliders mostram o valor ao lado.
+const SLIDERS := {
+	"Sensitivity": "mouse_sensitivity",
+	"TouchSensitivity": "touch_sensitivity",
+	"Fov": "fov",
+	"Volume": "master_volume",
+	"RenderScale": "render_scale",
+	"ButtonScale": "button_scale",
+}
+const CHECKS := {
+	"InvertY": "invert_y",
+	"Fullscreen": "fullscreen",
+	"Vsync": "vsync",
+	"ShowFps": "show_fps",
+	"Vibration": "vibration",
+	"AimAssist": "aim_assist",
+	"Gyro": "gyro_aim",
+}
+const DESKTOP_ONLY := ["Sensitivity", "Fullscreen", "Vsync"]
+const TOUCH_ONLY := ["TouchSensitivity", "ButtonScale", "Vibration", "AimAssist", "Gyro", "TouchLayout"]
+
+@onready var grid: GridContainer = $Center/Panel/Margin/VBox/Scroll/Grid
+@onready var quality_option: OptionButton = %QualityOption
+@onready var touch_layout_button: Button = %TouchLayoutButton
+@onready var note: Label = %Note
 @onready var reset_button: Button = %ResetButton
 @onready var close_button: Button = %CloseButton
-@onready var grid: GridContainer = $Center/Panel/Margin/VBox/Grid
-@onready var note: Label = $Center/Panel/Margin/VBox/Note
 
 
 func _ready() -> void:
 	hide()
-	if OS.has_feature("mobile"):
-		# Tela cheia e VSync não se aplicam no celular.
-		for row: String in ["Fullscreen", "Vsync"]:
-			for suffix: String in ["Label", "Check", "Spacer"]:
-				grid.get_node(row + suffix).hide()
+	var mobile := OS.has_feature("mobile")
+	for row: String in DESKTOP_ONLY:
+		if mobile:
+			_hide_row(row)
+	for row: String in TOUCH_ONLY:
+		if not GameInput.touch:
+			_hide_row(row)
 	if GameInput.touch:
 		note.text = "As mudanças valem na hora e são salvas ao fechar (voltar também fecha)."
-		(grid.get_node("SensitivityLabel") as Label).text = "Sensibilidade da mira"
-	sensitivity_slider.value_changed.connect(_on_setting_changed.bind("mouse_sensitivity"))
-	fov_slider.value_changed.connect(_on_setting_changed.bind("fov"))
-	volume_slider.value_changed.connect(_on_setting_changed.bind("master_volume"))
-	render_scale_slider.value_changed.connect(_on_setting_changed.bind("render_scale"))
-	invert_y_check.toggled.connect(_on_setting_changed.bind("invert_y"))
-	fullscreen_check.toggled.connect(_on_setting_changed.bind("fullscreen"))
-	vsync_check.toggled.connect(_on_setting_changed.bind("vsync"))
-	show_fps_check.toggled.connect(_on_setting_changed.bind("show_fps"))
+
+	for row: String in SLIDERS:
+		_slider(row).value_changed.connect(_on_setting_changed.bind(SLIDERS[row]))
+	for row: String in CHECKS:
+		_check(row).toggled.connect(_on_setting_changed.bind(CHECKS[row]))
+	quality_option.item_selected.connect(_on_setting_changed.bind("quality"))
+	touch_layout_button.pressed.connect(_on_touch_layout_pressed)
 	reset_button.pressed.connect(_on_reset_pressed)
 	close_button.pressed.connect(close)
 
@@ -49,7 +64,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func open() -> void:
+## in_game: ajustar a posição dos botões só faz sentido com o HUD na tela.
+func open(in_game: bool = false) -> void:
+	touch_layout_button.disabled = not in_game
 	_sync_controls()
 	show()
 	close_button.grab_focus()
@@ -63,30 +80,48 @@ func close() -> void:
 	closed.emit()
 
 
+func _hide_row(row: String) -> void:
+	for child in grid.get_children():
+		if child.name.begins_with(row) and child.name.trim_prefix(row) in ["Label", "Slider", "Value", "Check", "Spacer", "Button", "Option"]:
+			child.hide()
+
+
+func _slider(row: String) -> HSlider:
+	return grid.get_node(row + "Slider") as HSlider
+
+
+func _check(row: String) -> CheckButton:
+	return grid.get_node(row + "Check") as CheckButton
+
+
 ## Copia os valores atuais para os controles sem disparar os sinais.
 func _sync_controls() -> void:
-	sensitivity_slider.set_value_no_signal(Settings.mouse_sensitivity)
-	fov_slider.set_value_no_signal(Settings.fov)
-	volume_slider.set_value_no_signal(Settings.master_volume)
-	render_scale_slider.set_value_no_signal(Settings.render_scale)
-	invert_y_check.set_pressed_no_signal(Settings.invert_y)
-	fullscreen_check.set_pressed_no_signal(Settings.fullscreen)
-	vsync_check.set_pressed_no_signal(Settings.vsync)
-	show_fps_check.set_pressed_no_signal(Settings.show_fps)
+	for row: String in SLIDERS:
+		_slider(row).set_value_no_signal(Settings.get(SLIDERS[row]))
+	for row: String in CHECKS:
+		_check(row).set_pressed_no_signal(Settings.get(CHECKS[row]))
+	quality_option.select(Settings.quality)
 	_update_value_labels()
 
 
 func _update_value_labels() -> void:
-	sensitivity_value.text = "%.2fx" % Settings.mouse_sensitivity
-	fov_value.text = "%d°" % roundi(Settings.fov)
-	volume_value.text = "%d%%" % roundi(Settings.master_volume * 100.0)
-	render_scale_value.text = "%d%%" % roundi(Settings.render_scale * 100.0)
+	(grid.get_node("SensitivityValue") as Label).text = "%.2fx" % Settings.mouse_sensitivity
+	(grid.get_node("TouchSensitivityValue") as Label).text = "%.2fx" % Settings.touch_sensitivity
+	(grid.get_node("FovValue") as Label).text = "%d°" % roundi(Settings.fov)
+	(grid.get_node("VolumeValue") as Label).text = "%d%%" % roundi(Settings.master_volume * 100.0)
+	(grid.get_node("RenderScaleValue") as Label).text = "%d%%" % roundi(Settings.render_scale * 100.0)
+	(grid.get_node("ButtonScaleValue") as Label).text = "%d%%" % roundi(Settings.button_scale * 100.0)
 
 
 func _on_setting_changed(value: Variant, key: String) -> void:
 	Settings.set(key, value)
 	Settings.apply()
 	_update_value_labels()
+
+
+func _on_touch_layout_pressed() -> void:
+	close()
+	touch_layout_requested.emit()
 
 
 func _on_reset_pressed() -> void:

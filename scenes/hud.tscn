@@ -1,0 +1,402 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/hud.gd" id="1_hud"]
+[ext_resource type="Script" path="res://scripts/touch_controls.gd" id="2_touch"]
+[ext_resource type="Script" path="res://scripts/damage_indicator.gd" id="3_damage"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_panel"]
+bg_color = Color(0.08, 0.09, 0.12, 0.88)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_hp_bg"]
+bg_color = Color(0.15, 0.15, 0.18, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_hp_fill"]
+bg_color = Color(0.3, 0.85, 0.35, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_big"]
+bg_color = Color(0.06, 0.07, 0.1, 0.94)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+content_margin_left = 24.0
+content_margin_top = 18.0
+content_margin_right = 24.0
+content_margin_bottom = 18.0
+
+[node name="HUD" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_hud")
+
+[node name="DamageFlash" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.85, 0, 0, 0)
+
+[node name="DamageIndicator" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_damage")
+
+[node name="Crosshair" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Cross" type="Control" parent="Crosshair"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(22, 22)
+layout_mode = 2
+mouse_filter = 2
+pivot_offset = Vector2(11, 11)
+
+[node name="Horizontal" type="ColorRect" parent="Crosshair/Cross"]
+layout_mode = 0
+offset_top = 10.0
+offset_right = 22.0
+offset_bottom = 12.0
+mouse_filter = 2
+
+[node name="Vertical" type="ColorRect" parent="Crosshair/Cross"]
+layout_mode = 0
+offset_left = 10.0
+offset_right = 12.0
+offset_bottom = 22.0
+mouse_filter = 2
+
+[node name="ScorePanel" type="PanelContainer" parent="."]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 236.0
+offset_bottom = 60.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_panel")
+
+[node name="ScoreMargin" type="MarginContainer" parent="ScorePanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="ScoreLabel" type="Label" parent="ScorePanel/ScoreMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Placar"
+
+[node name="TimerLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -50.0
+offset_top = 10.0
+offset_right = 50.0
+offset_bottom = 46.0
+grow_horizontal = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 26
+text = "5:00"
+horizontal_alignment = 1
+
+[node name="HealthPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -68.0
+offset_right = 476.0
+offset_bottom = -16.0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_panel")
+
+[node name="HealthMargin" type="MarginContainer" parent="HealthPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="HealthRow" type="HBoxContainer" parent="HealthPanel/HealthMargin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="HealthTitle" type="Label" parent="HealthPanel/HealthMargin/HealthRow"]
+layout_mode = 2
+text = "VIDA"
+
+[node name="HealthBar" type="ProgressBar" parent="HealthPanel/HealthMargin/HealthRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 22)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBox_hp_bg")
+theme_override_styles/fill = SubResource("StyleBox_hp_fill")
+value = 100.0
+show_percentage = false
+
+[node name="HealthLabel" type="Label" parent="HealthPanel/HealthMargin/HealthRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(36, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "100"
+horizontal_alignment = 2
+
+[node name="Separator" type="VSeparator" parent="HealthPanel/HealthMargin/HealthRow"]
+layout_mode = 2
+
+[node name="WeaponLabel" type="Label" parent="HealthPanel/HealthMargin/HealthRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.85, 1)
+text = "Rifle"
+
+[node name="AmmoLabel" type="Label" parent="HealthPanel/HealthMargin/HealthRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(70, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "12 / 12"
+horizontal_alignment = 2
+
+[node name="KillFeed" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -396.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 200.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="RewardFeed" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = 40.0
+offset_right = 200.0
+offset_bottom = 160.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="DeathLabel" type="Label" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 0.35, 0.3, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 32
+text = "Eliminado"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Scoreboard" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -150.0
+offset_right = 240.0
+offset_bottom = 150.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_big")
+
+[node name="VBox" type="VBoxContainer" parent="Scoreboard"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Scoreboard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Placar"
+horizontal_alignment = 1
+
+[node name="ScoreGrid" type="GridContainer" parent="Scoreboard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/h_separation = 24
+theme_override_constants/v_separation = 6
+columns = 4
+
+[node name="Results" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -150.0
+offset_right = 220.0
+offset_bottom = 150.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_big")
+
+[node name="VBox" type="VBoxContainer" parent="Results"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="ResultTitle" type="Label" parent="Results/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "Fim de partida"
+horizontal_alignment = 1
+
+[node name="WinnerLabel" type="Label" parent="Results/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+
+[node name="StandingsLabel" type="Label" parent="Results/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="RecordLabel" type="Label" parent="Results/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.85, 1, 1)
+horizontal_alignment = 1
+
+[node name="EarnedLabel" type="Label" parent="Results/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+horizontal_alignment = 1
+
+[node name="NextLabel" type="Label" parent="Results/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
+horizontal_alignment = 1
+
+[node name="PausePanel" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -170.0
+offset_top = -200.0
+offset_right = 170.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 8
+
+[node name="PauseHint" type="Label" parent="PausePanel"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Mouse liberado — clique na tela ou ESC para voltar"
+horizontal_alignment = 1
+
+[node name="ResumeButton" type="Button" parent="PausePanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "Voltar ao jogo"
+
+[node name="PauseSettingsButton" type="Button" parent="PausePanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "Configurações"
+
+[node name="LeaveButton" type="Button" parent="PausePanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "Sair da partida"
+
+[node name="TouchControls" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_touch")

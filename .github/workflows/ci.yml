@@ -1,0 +1,97 @@
+# Testes a cada push/PR; numa tag v* também exporta Windows e Android e
+# publica os arquivos numa Release.
+#
+# Segredos do repositório usados no export Android (Settings > Secrets):
+#   ANDROID_KEYSTORE_BASE64    base64 -w0 fps-arena-release.keystore
+#   ANDROID_KEYSTORE_PASSWORD  a senha da chave (usuário: fpsarena)
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+env:
+  GODOT_VERSION: 4.7.2
+  GODOT: ./tools/bin/Godot_v4.7.2-stable_linux.x86_64
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Baixar o Godot
+        run: |
+          mkdir -p tools/bin
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d tools/bin
+          chmod +x "$GODOT"
+
+      - name: Importar o projeto (pega erro de script)
+        run: |
+          "$GODOT" --headless --path . --import 2>&1 | tee import.log
+          ! grep -q "SCRIPT ERROR" import.log
+
+      - name: Testes unitários
+        run: "$GODOT" --headless --path . --script res://tests/unit_tests.gd
+
+      - name: Teste de movimentação (física)
+        run: "$GODOT" --headless --path . res://tests/movement_test.tscn
+
+      - name: Teste de rede (host + bots + cliente)
+        run: ./tests/smoke_test.sh
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Baixar o Godot e os templates de exportação
+        run: |
+          mkdir -p tools/bin
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d tools/bin
+          chmod +x "$GODOT"
+          curl -fsSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          mkdir -p ~/.local/share/godot/export_templates
+          unzip -q templates.tpz -d /tmp/templates
+          mv /tmp/templates/templates ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+
+      - name: Configurar Android SDK e chave
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          mkdir -p ~/.config/godot
+          printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\n' \
+            "$ANDROID_HOME" "$JAVA_HOME" > ~/.config/godot/editor_settings-4.7.tres
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          {
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$RUNNER_TEMP/release.keystore"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=fpsarena"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$KEYSTORE_PASSWORD"
+          } > "$RUNNER_TEMP/keys.env"
+
+      - name: Exportar
+        run: |
+          ./export_windows.sh
+          KEYS="$RUNNER_TEMP/keys.env" ./export_android.sh
+          cd builds/windows && zip -q -r ../FPSArenaLAN-windows.zip . && cd -
+
+      - name: Publicar a Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            builds/FPSArenaLAN-windows.zip
+            builds/android/FPSArenaLAN.apk

@@ -26,6 +26,18 @@ ou OpenGL 3.3. O jogo escolhe sozinho o que funcionar no seu PC.
    Dê dois cliques em "Testar 2 janelas.bat": numa janela clique em
    "Host LAN" e na outra em "Entrar (Join)" com 127.0.0.1.
 
+ARSENAL
+   Cada partida rende moedas e XP (abates, tiros na cabeça, alvos e
+   colocação no fim). No menu, o botão "Arsenal" compra armas e
+   equipamentos e melhora as armas. O nível libera itens novos.
+   O equipamento escolhido vale a partir da próxima partida.
+
+TREINO ADAPTATIVO
+   Escolha o mapa "Treino adaptativo" e crie a partida. Os bots aprendem
+   como você se move e atira: os Caçadores exploram seus vícios e os
+   Espelhos jogam do seu jeito. Ficam mais difíceis quando você vence.
+   O botão "Hábitos (IA)" do menu mostra o que eles aprenderam.
+
 CONTROLES
    WASD mover | Espaço pular | Clique esquerdo atirar
    ESC liberar o mouse (abre Configurações e Sair da partida)
@@ -37,5 +49,5 @@ NÃO CONSEGUE CONECTAR?
      Defender > Permitir um aplicativo > marque FPSArenaLAN em "Privada".
    - A porta padrão é 7777 (UDP). Se mudar, todos precisam usar a mesma.
 
-As configurações ficam salvas em:
-   %APPDATA%\Godot\app_userdata\FPS Arena LAN\settings.cfg
+As configurações e o progresso (moedas, nível, armas) ficam salvos em:
+   %APPDATA%\Godot\app_userdata\FPS Arena LAN\

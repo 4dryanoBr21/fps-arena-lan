@@ -19,6 +19,18 @@ Vulkan usam o renderizador Mobile; os outros caem sozinhos para OpenGL ES 3.
    Digite o IP do host e toque em "Entrar (Join)".
    Todos precisam estar no mesmo Wi-Fi. Celular, Windows e Linux jogam juntos.
 
+ARSENAL
+   Cada partida rende moedas e XP (abates, tiros na cabeça, alvos e
+   colocação no fim). No menu, o botão "Arsenal" compra armas e
+   equipamentos e melhora as armas. O nível libera itens novos.
+   O progresso fica salvo no celular e vale a partir da próxima partida.
+
+TREINO ADAPTATIVO
+   Escolha o mapa "Treino adaptativo" e crie a partida. Os bots aprendem
+   como você se move e atira: os Caçadores exploram seus vícios e os
+   Espelhos jogam do seu jeito. Ficam mais difíceis quando você vence.
+   O botão "Hábitos (IA)" do menu mostra o que eles aprenderam.
+
 CONTROLES (TOQUE)
    Metade esquerda da tela: joystick (encoste o dedo onde quiser e arraste)
    Metade direita: arraste para mirar

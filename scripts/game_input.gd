@@ -11,6 +11,11 @@ var touch: bool = OS.has_feature("mobile") or OS.get_cmdline_user_args().has("--
 var move: Vector2 = Vector2.ZERO
 var jump_pressed: bool = false
 var fire_held: bool = false
+## Agachar no toque é liga/desliga.
+var crouch_toggled: bool = false
+var reload_pressed: bool = false
+var switch_weapon_pressed: bool = false
+var scoreboard_held: bool = false
 
 var _paused: bool = true
 var _look_delta: Vector2 = Vector2.ZERO
@@ -56,15 +61,36 @@ func consume_look() -> Vector2:
 	return delta
 
 
-## Pulo vale uma vez por toque.
+## Pulo, recarga e troca de arma valem uma vez por toque.
 func consume_jump() -> bool:
 	var pressed := jump_pressed
 	jump_pressed = false
 	return pressed
 
 
+func consume_reload() -> bool:
+	var pressed := reload_pressed
+	reload_pressed = false
+	return pressed
+
+
+func consume_switch_weapon() -> bool:
+	var pressed := switch_weapon_pressed
+	switch_weapon_pressed = false
+	return pressed
+
+
+## Vibração curta no celular (respeita a opção das Configurações).
+func vibrate(duration_ms: int) -> void:
+	if OS.has_feature("mobile") and Settings.vibration:
+		Input.vibrate_handheld(duration_ms)
+
+
 func reset_touch_state() -> void:
 	move = Vector2.ZERO
 	jump_pressed = false
 	fire_held = false
+	reload_pressed = false
+	switch_weapon_pressed = false
+	scoreboard_held = false
 	_look_delta = Vector2.ZERO

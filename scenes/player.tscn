@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
 
@@ -6,9 +6,14 @@
 radius = 0.4
 height = 1.8
 
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
-radius = 0.4
-height = 1.8
+[sub_resource type="BoxMesh" id="BoxMesh_torso"]
+size = Vector3(0.62, 0.7, 0.36)
+
+[sub_resource type="BoxMesh" id="BoxMesh_legs"]
+size = Vector3(0.5, 0.8, 0.3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_head"]
+size = Vector3(0.36, 0.34, 0.36)
 
 [sub_resource type="StandardMaterial3D" id="Mat_dark"]
 albedo_color = Color(0.08, 0.08, 0.1, 1)
@@ -17,7 +22,7 @@ roughness = 0.3
 
 [sub_resource type="BoxMesh" id="BoxMesh_visor"]
 material = SubResource("Mat_dark")
-size = Vector3(0.5, 0.15, 0.2)
+size = Vector3(0.3, 0.1, 0.06)
 
 [sub_resource type="StandardMaterial3D" id="Mat_gun"]
 albedo_color = Color(0.22, 0.24, 0.28, 1)
@@ -35,15 +40,21 @@ bottom_radius = 0.025
 height = 0.25
 
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_player"]
-properties/0/path = NodePath(".:position")
+properties/0/path = NodePath(".:net_position")
 properties/0/spawn = true
 properties/0/replication_mode = 1
-properties/1/path = NodePath(".:rotation")
+properties/1/path = NodePath(".:net_yaw")
 properties/1/spawn = true
 properties/1/replication_mode = 1
-properties/2/path = NodePath("Head:rotation")
+properties/2/path = NodePath(".:net_pitch")
 properties/2/spawn = true
 properties/2/replication_mode = 1
+properties/3/path = NodePath(".:net_crouch")
+properties/3/spawn = true
+properties/3/replication_mode = 2
+properties/4/path = NodePath(".:net_weapon")
+properties/4/spawn = true
+properties/4/replication_mode = 2
 
 [node name="Player" type="CharacterBody3D"]
 script = ExtResource("1_player")
@@ -52,12 +63,22 @@ script = ExtResource("1_player")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
 shape = SubResource("CapsuleShape3D_body")
 
-[node name="VisualMesh" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
-mesh = SubResource("CapsuleMesh_body")
+[node name="Visual" type="Node3D" parent="."]
 
-[node name="Visor" type="MeshInstance3D" parent="VisualMesh"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, -0.32)
+[node name="Legs" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+mesh = SubResource("BoxMesh_legs")
+
+[node name="Torso" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0)
+mesh = SubResource("BoxMesh_torso")
+
+[node name="HeadMesh" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.63, 0)
+mesh = SubResource("BoxMesh_head")
+
+[node name="Visor" type="MeshInstance3D" parent="Visual/HeadMesh"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.19)
 mesh = SubResource("BoxMesh_visor")
 
 [node name="Head" type="Node3D" parent="."]
@@ -65,10 +86,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
 
 [node name="Camera3D" type="Camera3D" parent="Head"]
 fov = 80.0
-
-[node name="RayCast3D" type="RayCast3D" parent="Head"]
-enabled = false
-target_position = Vector3(0, 0, -100)
 
 [node name="Weapon" type="Node3D" parent="Head"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.28, -0.22, -0.45)
@@ -86,4 +103,6 @@ mesh = SubResource("CylinderMesh_barrel")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, -0.43)
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+replication_interval = 0.05
+delta_interval = 0.05
 replication_config = SubResource("SceneReplicationConfig_player")

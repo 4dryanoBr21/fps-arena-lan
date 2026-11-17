@@ -1,0 +1,270 @@
+[gd_scene load_steps=11 format=3]
+
+[sub_resource type="Shader" id="Shader_grid"]
+code = "shader_type spatial;
+
+uniform vec3 base_color = vec3(0.13, 0.11, 0.1);
+uniform vec3 line_color = vec3(0.32, 0.24, 0.16);
+uniform float cell_size = 2.0;
+
+varying vec3 world_pos;
+
+void vertex() {
+	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
+void fragment() {
+	vec2 coord = world_pos.xz / cell_size;
+	vec2 grid = abs(fract(coord - 0.5) - 0.5) / fwidth(coord);
+	float line = 1.0 - min(min(grid.x, grid.y), 1.0);
+	ALBEDO = mix(base_color, line_color, line);
+	ROUGHNESS = 0.85;
+}
+"
+
+[sub_resource type="ShaderMaterial" id="Mat_floor"]
+render_priority = 0
+shader = SubResource("Shader_grid")
+
+[sub_resource type="StandardMaterial3D" id="Mat_rust"]
+albedo_color = Color(0.42, 0.24, 0.16, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_steel"]
+albedo_color = Color(0.28, 0.34, 0.42, 1)
+metallic = 0.5
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="Mat_hazard"]
+albedo_color = Color(0.95, 0.72, 0.1, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="Mat_core"]
+albedo_color = Color(0.6, 0.12, 0.1, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Mat_ramp"]
+albedo_color = Color(0.36, 0.38, 0.4, 1)
+metallic = 0.3
+roughness = 0.6
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.2, 0.18, 0.35, 1)
+sky_horizon_color = Color(0.95, 0.5, 0.25, 1)
+ground_bottom_color = Color(0.1, 0.08, 0.08, 1)
+ground_horizon_color = Color(0.95, 0.5, 0.25, 1)
+
+[sub_resource type="Sky" id="Sky_dm"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env_dm"]
+background_mode = 2
+sky = SubResource("Sky_dm")
+ambient_light_source = 3
+ambient_light_energy = 0.7
+tonemap_mode = 2
+glow_enabled = true
+fog_enabled = true
+fog_light_color = Color(0.75, 0.45, 0.3, 1)
+fog_density = 0.008
+
+[node name="Deathmatch" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_dm")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, 0.353553, -0.612372, 0, 15, 0)
+light_color = Color(1, 0.78, 0.6, 1)
+light_energy = 1.2
+shadow_enabled = true
+
+[node name="CoreLight" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+light_color = Color(1, 0.45, 0.2, 1)
+light_energy = 2.0
+omni_range = 12.0
+
+[node name="Floor" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+use_collision = true
+size = Vector3(48, 1, 48)
+material = SubResource("Mat_floor")
+
+[node name="Walls" type="Node3D" parent="."]
+
+[node name="North" type="CSGBox3D" parent="Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -24.5)
+use_collision = true
+size = Vector3(50, 5, 1)
+material = SubResource("Mat_rust")
+
+[node name="South" type="CSGBox3D" parent="Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 24.5)
+use_collision = true
+size = Vector3(50, 5, 1)
+material = SubResource("Mat_rust")
+
+[node name="East" type="CSGBox3D" parent="Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.5, 2.5, 0)
+use_collision = true
+size = Vector3(1, 5, 48)
+material = SubResource("Mat_rust")
+
+[node name="West" type="CSGBox3D" parent="Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24.5, 2.5, 0)
+use_collision = true
+size = Vector3(1, 5, 48)
+material = SubResource("Mat_rust")
+
+[node name="Core" type="Node3D" parent="."]
+
+[node name="Platform" type="CSGBox3D" parent="Core"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+use_collision = true
+size = Vector3(8, 2, 8)
+material = SubResource("Mat_core")
+
+[node name="RampSouth" type="CSGBox3D" parent="Core"]
+transform = Transform3D(1, 0, 0, 0, 0.948683, -0.316228, 0, 0.316228, 0.948683, 0, 0.763, 6.921)
+use_collision = true
+size = Vector3(3, 0.5, 6.325)
+material = SubResource("Mat_ramp")
+
+[node name="RampNorth" type="CSGBox3D" parent="Core"]
+transform = Transform3D(1, 0, 0, 0, 0.948683, 0.316228, 0, -0.316228, 0.948683, 0, 0.763, -6.921)
+use_collision = true
+size = Vector3(3, 0.5, 6.325)
+material = SubResource("Mat_ramp")
+
+[node name="ParapetEast" type="CSGBox3D" parent="Core"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.7, 2.5, 0)
+use_collision = true
+size = Vector3(0.6, 1, 5)
+material = SubResource("Mat_steel")
+
+[node name="ParapetWest" type="CSGBox3D" parent="Core"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.7, 2.5, 0)
+use_collision = true
+size = Vector3(0.6, 1, 5)
+material = SubResource("Mat_steel")
+
+[node name="CenterCrate" type="CSGBox3D" parent="Core"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.6, 0)
+use_collision = true
+size = Vector3(1.2, 1.2, 1.2)
+material = SubResource("Mat_hazard")
+
+[node name="Lanes" type="Node3D" parent="."]
+
+[node name="WallEastNorth" type="CSGBox3D" parent="Lanes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 1.75, -9)
+use_collision = true
+size = Vector3(1, 3.5, 10)
+material = SubResource("Mat_steel")
+
+[node name="WallEastSouth" type="CSGBox3D" parent="Lanes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 1.75, 9)
+use_collision = true
+size = Vector3(1, 3.5, 10)
+material = SubResource("Mat_steel")
+
+[node name="WallWestNorth" type="CSGBox3D" parent="Lanes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 1.75, -9)
+use_collision = true
+size = Vector3(1, 3.5, 10)
+material = SubResource("Mat_steel")
+
+[node name="WallWestSouth" type="CSGBox3D" parent="Lanes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 1.75, 9)
+use_collision = true
+size = Vector3(1, 3.5, 10)
+material = SubResource("Mat_steel")
+
+[node name="BlockEast" type="CSGBox3D" parent="Lanes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 1, 0)
+use_collision = true
+size = Vector3(2, 2, 4)
+material = SubResource("Mat_hazard")
+
+[node name="BlockWest" type="CSGBox3D" parent="Lanes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 1, 0)
+use_collision = true
+size = Vector3(2, 2, 4)
+material = SubResource("Mat_hazard")
+
+[node name="Crates" type="Node3D" parent="."]
+
+[node name="CrateNE" type="CSGBox3D" parent="Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 1, -15)
+use_collision = true
+size = Vector3(2, 2, 2)
+material = SubResource("Mat_rust")
+
+[node name="CrateNW" type="CSGBox3D" parent="Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0.75, -15)
+use_collision = true
+size = Vector3(1.5, 1.5, 1.5)
+material = SubResource("Mat_hazard")
+
+[node name="CrateSW" type="CSGBox3D" parent="Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 1, 15)
+use_collision = true
+size = Vector3(2, 2, 2)
+material = SubResource("Mat_rust")
+
+[node name="CrateSE" type="CSGBox3D" parent="Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.75, 15)
+use_collision = true
+size = Vector3(1.5, 1.5, 1.5)
+material = SubResource("Mat_hazard")
+
+[node name="BarrierNE" type="CSGBox3D" parent="Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 1, -14)
+use_collision = true
+size = Vector3(3, 2, 1.5)
+material = SubResource("Mat_steel")
+
+[node name="BarrierNW" type="CSGBox3D" parent="Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16, 1, -14)
+use_collision = true
+size = Vector3(3, 2, 1.5)
+material = SubResource("Mat_steel")
+
+[node name="BarrierSE" type="CSGBox3D" parent="Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 1, 14)
+use_collision = true
+size = Vector3(3, 2, 1.5)
+material = SubResource("Mat_steel")
+
+[node name="BarrierSW" type="CSGBox3D" parent="Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16, 1, 14)
+use_collision = true
+size = Vector3(3, 2, 1.5)
+material = SubResource("Mat_steel")
+
+[node name="SpawnPoints" type="Node3D" parent="."]
+
+[node name="SpawnNE" type="Marker3D" parent="SpawnPoints" groups=["spawn_points"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 0.2, -21)
+
+[node name="SpawnNW" type="Marker3D" parent="SpawnPoints" groups=["spawn_points"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21, 0.2, -21)
+
+[node name="SpawnSE" type="Marker3D" parent="SpawnPoints" groups=["spawn_points"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 0.2, 21)
+
+[node name="SpawnSW" type="Marker3D" parent="SpawnPoints" groups=["spawn_points"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21, 0.2, 21)
+
+[node name="SpawnE" type="Marker3D" parent="SpawnPoints" groups=["spawn_points"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 0.2, 0)
+
+[node name="SpawnW" type="Marker3D" parent="SpawnPoints" groups=["spawn_points"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21, 0.2, 0)
+
+[node name="SpawnN" type="Marker3D" parent="SpawnPoints" groups=["spawn_points"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, -21)
+
+[node name="SpawnS" type="Marker3D" parent="SpawnPoints" groups=["spawn_points"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 21)

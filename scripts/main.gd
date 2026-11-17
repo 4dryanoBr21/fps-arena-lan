@@ -1,95 +1,69 @@
 extends Node3D
-## Menu LAN, carregamento do mapa, HUD e spawn/despawn dos jogadores
-## (o MultiplayerSpawner replica).
+## Junta as partes: carrega o mapa, cria e remove jogadores e bots (o
+## MultiplayerSpawner replica), alterna menu e HUD, recoloca todo mundo no
+## reinício da partida e trata o "voltar" do Android.
+##
+## Argumentos para testes automáticos (depois de "--" na linha de comando):
+##   --host  --join=IP  --map=N  --bots=N  --name=X  --quit-after=SEGUNDOS
+##   --loadout=PRINCIPAL,SECUNDÁRIA,EQUIPAMENTO (ids do GameRules)
+##   --autopilot  o jogador local desvia mais para a direita, mira no inimigo
+##                mais perto e atira (testa o aprendizado do Treino adaptativo)
+## Com --quit-after o jogo usa progresso e hábitos zerados e não salva nada.
 
 const PLAYER_SCENE: PackedScene = preload("res://scenes/player.tscn")
-const KILL_FEED_MAX: int = 5
-const KILL_FEED_TIME: float = 4.0
 
 var _in_game: bool = false
-var _respawn_at_msec: int = 0
-var _killer_text: String = ""
-var _hitmarker_tween: Tween
-var _flash_tween: Tween
+var _loaded_map: int = -1
+var _autopilot: bool = false
+var _autopilot_time: float = 0.0
 
 @onready var world: Node3D = $World
 @onready var players: Node3D = $Players
 @onready var menu_camera: Camera3D = $MenuCamera
-@onready var menu: Control = $UI/Menu
-@onready var hud: Control = $UI/HUD
-@onready var ip_edit: LineEdit = %IPEdit
-@onready var port_edit: LineEdit = %PortEdit
-@onready var map_option: OptionButton = %MapOption
-@onready var host_button: Button = %HostButton
-@onready var join_button: Button = %JoinButton
-@onready var status_label: Label = %StatusLabel
-@onready var score_label: Label = %ScoreLabel
-@onready var pause_panel: Control = %PausePanel
-@onready var leave_button: Button = %LeaveButton
-@onready var resume_button: Button = %ResumeButton
-@onready var pause_hint: Label = %PauseHint
-@onready var help_label: Label = %Help
-@onready var touch_controls: Control = %TouchControls
-@onready var cross: Control = %Cross
-@onready var health_bar: ProgressBar = %HealthBar
-@onready var health_label: Label = %HealthLabel
-@onready var damage_flash: ColorRect = %DamageFlash
-@onready var death_label: Label = %DeathLabel
-@onready var kill_feed: VBoxContainer = %KillFeed
-@onready var settings_button: Button = %SettingsButton
-@onready var pause_settings_button: Button = %PauseSettingsButton
-@onready var settings_menu: Control = %SettingsMenu
+@onready var menu: MainMenu = $UI/Menu
+@onready var hud: GameHUD = $UI/HUD
+@onready var settings_menu: SettingsMenu = $UI/SettingsMenu
+@onready var shop: ShopMenu = $UI/Shop
+@onready var habits_panel: HabitsPanel = $UI/HabitsPanel
 @onready var fps_label: Label = %FpsLabel
 
 
 func _ready() -> void:
-	for map: Dictionary in NetworkManager.MAPS:
-		map_option.add_item(map["name"])
-	map_option.item_selected.connect(_load_map)
-
-	host_button.pressed.connect(_on_host_pressed)
-	join_button.pressed.connect(_on_join_pressed)
-	leave_button.pressed.connect(_on_leave_pressed)
-	resume_button.pressed.connect(GameInput.capture)
-	settings_button.pressed.connect(_open_settings)
-	pause_settings_button.pressed.connect(_open_settings)
+	menu.map_selected.connect(_load_map)
+	menu.settings_requested.connect(_open_settings)
+	menu.shop_requested.connect(_open_shop)
+	shop.closed.connect(menu.show)
+	menu.habits_requested.connect(_open_habits)
+	habits_panel.closed.connect(menu.show)
+	hud.settings_requested.connect(_open_settings)
+	hud.leave_requested.connect(_on_leave_pressed)
+	settings_menu.closed.connect(_on_settings_closed)
+	settings_menu.touch_layout_requested.connect(hud.touch_controls.start_editing)
 	Settings.changed.connect(_on_settings_changed)
 	_on_settings_changed()
 	players.child_entered_tree.connect(_on_player_added)
 
-	NetworkManager.status_changed.connect(_on_status_changed)
 	NetworkManager.map_changed.connect(_load_map)
 	NetworkManager.game_started.connect(_on_game_started)
 	NetworkManager.game_ended.connect(_on_game_ended)
 	NetworkManager.player_joined.connect(_on_player_joined)
 	NetworkManager.player_left.connect(_despawn_player)
-	NetworkManager.scores_changed.connect(_refresh_scoreboard)
-	NetworkManager.hit_confirmed.connect(_on_hit_confirmed)
-	NetworkManager.kill_announced.connect(_on_kill_announced)
+	NetworkManager.match_restarted.connect(_on_match_restarted)
 
-	if GameInput.touch:
-		help_label.text = "Joystick à esquerda move · arraste à direita mira · botões para atirar e pular"
-		pause_hint.text = "Jogo pausado"
-
-	_load_map(map_option.selected)
-	_show_menu("Desconectado. Escolha Host LAN ou Entrar (Join).")
+	_load_map(menu.selected_map())
+	_show_menu("Desconectado. Crie uma partida ou entre numa.")
+	_run_test_args()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if fps_label.visible:
 		fps_label.text = "FPS: %d" % Engine.get_frames_per_second()
-	if not _in_game:
-		return
-	var active := GameInput.is_active()
-	pause_panel.visible = not active and not settings_menu.visible
-	touch_controls.visible = GameInput.touch and active
-	if death_label.visible:
-		var remaining := maxf((_respawn_at_msec - Time.get_ticks_msec()) / 1000.0, 0.0)
-		death_label.text = "%s\nRenascendo em %.1f s" % [_killer_text, remaining]
+	if _autopilot:
+		_drive_autopilot(delta)
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not _in_game or settings_menu.visible:
+	if not _in_game or settings_menu.visible or hud.touch_controls.editing:
 		return
 	if event.is_action_pressed("ui_cancel"):
 		_toggle_pause()
@@ -106,7 +80,11 @@ func _notification(what: int) -> void:
 		NOTIFICATION_WM_GO_BACK_REQUEST:
 			# Botão/gesto "voltar" do Android: fecha painel, pausa ou sai do app.
 			if settings_menu.visible:
-				settings_menu.call("close")
+				settings_menu.close()
+			elif shop.visible:
+				shop.close()
+			elif habits_panel.visible:
+				habits_panel.close()
 			elif _in_game:
 				_toggle_pause()
 			else:
@@ -124,8 +102,12 @@ func _toggle_pause() -> void:
 		GameInput.capture()
 
 
-## Troca o mapa mantendo o nome "Map" (os caminhos de RPC dos alvos dependem dele).
+## Troca o mapa mantendo o nome "Map" (os caminhos de RPC dos alvos dependem
+## dele; tests/smoke_test.sh confere). Não recarrega se já for o mesmo.
 func _load_map(map_index: int) -> void:
+	menu.select_map(map_index)
+	if map_index == _loaded_map:
+		return
 	for child in world.get_children():
 		world.remove_child(child)
 		child.queue_free()
@@ -133,37 +115,31 @@ func _load_map(map_index: int) -> void:
 	var map := scene.instantiate()
 	map.name = "Map"
 	world.add_child(map)
-	if map_option.selected != map_index:
-		map_option.select(map_index)
-
-
-func _read_port() -> int:
-	var port := port_edit.text.strip_edges().to_int()
-	if port <= 0 or port > 65535:
-		port = NetworkManager.DEFAULT_PORT
-		port_edit.text = str(port)
-	return port
-
-
-func _on_host_pressed() -> void:
-	NetworkManager.host_game(_read_port(), map_option.selected)
-
-
-func _on_join_pressed() -> void:
-	var ip := ip_edit.text.strip_edges()
-	if ip.is_empty():
-		ip = "127.0.0.1"
-		ip_edit.text = ip
-	if NetworkManager.join_game(ip, _read_port()) == OK:
-		host_button.disabled = true
-		join_button.disabled = true
-		map_option.disabled = true
+	Settings.apply_quality_to(map)
+	_loaded_map = map_index
 
 
 func _open_settings() -> void:
 	# Mouse livre enquanto o painel está aberto; ao fechar, clique na tela recaptura.
 	GameInput.release()
-	settings_menu.call("open")
+	hud.settings_open = true
+	settings_menu.open(_in_game)
+
+
+## O Arsenal só abre pelo menu (fora da partida): o equipamento vale a
+## partir da próxima vez que entrar.
+func _open_shop() -> void:
+	menu.hide()
+	shop.open()
+
+
+func _open_habits() -> void:
+	menu.hide()
+	habits_panel.open()
+
+
+func _on_settings_closed() -> void:
+	hud.settings_open = false
 
 
 func _on_settings_changed() -> void:
@@ -174,41 +150,38 @@ func _on_leave_pressed() -> void:
 	NetworkManager.leave_game("Você saiu da partida.")
 
 
-func _on_status_changed(text: String) -> void:
-	status_label.text = text
-
-
 func _on_game_started() -> void:
 	_in_game = true
+	shop.close()
+	habits_panel.close()
 	menu.hide()
+	hud.reset()
 	hud.show()
-	death_label.hide()
 	GameInput.capture()
 	if multiplayer.is_server():
 		_spawn_player(1)
-	_refresh_scoreboard()
+		for bot_id in NetworkManager.get_bot_ids():
+			_spawn_player(bot_id)
 
 
 func _on_game_ended(reason: String) -> void:
 	for child in players.get_children():
 		child.queue_free()
-	for child in kill_feed.get_children():
-		child.queue_free()
-	_load_map(map_option.selected)
+	hud.reset()
+	get_tree().call_group("targets", "reset_local")
 	_show_menu(reason)
 
 
 func _show_menu(status: String) -> void:
 	_in_game = false
-	settings_menu.call("close")
+	settings_menu.close()
+	shop.close()
+	habits_panel.close()
 	menu.show()
 	hud.hide()
-	host_button.disabled = false
-	join_button.disabled = false
-	map_option.disabled = false
 	menu_camera.current = true
 	GameInput.release()
-	status_label.text = status
+	menu.set_status(status)
 
 
 ## Só no servidor: um cliente terminou de carregar o mapa.
@@ -234,90 +207,101 @@ func _despawn_player(peer_id: int) -> void:
 		player.queue_free()
 
 
-## Liga o HUD aos sinais do jogador local quando ele aparece (em qualquer peer).
+## Só no servidor: partida nova, todo mundo de volta com vida cheia.
+func _on_match_restarted() -> void:
+	get_tree().call_group("targets", "server_reset")
+	for child in players.get_children():
+		(child as FPSPlayer).server_respawn_now()
+
+
+## Liga o HUD ao jogador local quando ele aparece (em qualquer peer).
 func _on_player_added(node: Node) -> void:
 	var player := node as FPSPlayer
 	if player == null or player.name.to_int() != multiplayer.get_unique_id():
 		return
-	player.health_changed.connect(_on_local_health_changed)
-	player.died.connect(_on_local_died)
-	player.respawned.connect(_on_local_respawned)
-	_on_local_health_changed(FPSPlayer.MAX_HEALTH, FPSPlayer.MAX_HEALTH, false)
+	if not player.is_node_ready():
+		await player.ready
+	hud.bind_player(player)
+	print("LOCAL_PLAYER_SPAWNED %s" % player.name)
 
 
-func _on_local_health_changed(health: int, max_health: int, damaged: bool) -> void:
-	health_bar.max_value = max_health
-	health_bar.value = health
-	health_label.text = "%d" % health
-	var fill := health_bar.get_theme_stylebox("fill") as StyleBoxFlat
-	if fill != null:
-		fill.bg_color = FPSPlayer.health_color(float(health) / max_health)
-	if damaged:
-		if _flash_tween != null:
-			_flash_tween.kill()
-		damage_flash.color.a = 0.4
-		_flash_tween = create_tween()
-		_flash_tween.tween_property(damage_flash, "color:a", 0.0, 0.35)
+func _run_test_args() -> void:
+	var args := {}
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--"):
+			var parts := arg.trim_prefix("--").split("=", true, 1)
+			args[parts[0]] = parts[1] if parts.size() > 1 else ""
+	if args.has("name"):
+		Settings.nickname = args["name"]
+	if args.has("quit-after"):
+		# Teste automático: perfis zerados e só em memória (não lê nem grava o save).
+		Progress.persistent = false
+		Progress.profile = PlayerProfile.new()
+		Habits.persistent = false
+		Habits.profile = PlayerHabits.new()
+	if args.has("autopilot"):
+		# Pelo caminho do toque: funciona sem mouse capturado (headless).
+		GameInput.touch = true
+		_autopilot = true
+	if args.has("loadout"):
+		var parts: PackedStringArray = args["loadout"].split(",")
+		parts.resize(3)
+		Progress.profile.primary = parts[0]
+		Progress.profile.secondary = parts[1]
+		Progress.profile.equipment = parts[2]
+	var map_index := clampi(int(args.get("map", menu.selected_map())), 0, NetworkManager.MAPS.size() - 1)
+	if args.has("host"):
+		_load_map(map_index)
+		NetworkManager.host_game(NetworkManager.DEFAULT_PORT, map_index, int(args.get("bots", 0)))
+	elif args.has("join"):
+		NetworkManager.join_game(args["join"], NetworkManager.DEFAULT_PORT)
+	if args.has("quit-after"):
+		get_tree().create_timer(float(args["quit-after"])).timeout.connect(_quit_with_report)
 
 
-func _on_local_died(killer_id: int) -> void:
-	_respawn_at_msec = Time.get_ticks_msec() + int(FPSPlayer.RESPAWN_TIME * 1000.0)
-	_killer_text = "Eliminado por %s" % NetworkManager.get_player_label(killer_id) \
-		if killer_id > 0 else "Você foi eliminado"
-	death_label.show()
-	cross.hide()
+## Teste: 1,2 s desviando para a direita e 0,4 s para a esquerda, mirando
+## no inimigo mais perto com o tiro apertado.
+func _drive_autopilot(delta: float) -> void:
+	var me := players.get_node_or_null(str(multiplayer.get_unique_id())) as FPSPlayer
+	if me == null or not me.alive:
+		GameInput.fire_held = false
+		return
+	_autopilot_time = fmod(_autopilot_time + delta, 1.6)
+	GameInput.move = Vector2(1.0 if _autopilot_time < 1.2 else -1.0, 0.0)
+	var target: FPSPlayer = null
+	for child in players.get_children():
+		var other := child as FPSPlayer
+		if other != me and other.alive and (target == null \
+				or me.global_position.distance_to(other.global_position) < me.global_position.distance_to(target.global_position)):
+			target = other
+	GameInput.fire_held = target != null
+	if target != null:
+		var to := target.global_position + Vector3.UP * target.body_height() * 0.6 - me.eye_position()
+		me.rotation.y = atan2(-to.x, -to.z)
+		me.head.rotation.x = atan2(to.y, Vector2(to.x, to.z).length())
 
 
-func _on_local_respawned() -> void:
-	death_label.hide()
-	cross.show()
-
-
-func _on_hit_confirmed(killed: bool) -> void:
-	Sfx.play(&"kill" if killed else &"hitmarker", -3.0)
-	if _hitmarker_tween != null:
-		_hitmarker_tween.kill()
-	cross.modulate = Color(1.0, 0.15, 0.15) if killed else Color(1.0, 0.85, 0.2)
-	cross.scale = Vector2.ONE * (1.8 if killed else 1.35)
-	_hitmarker_tween = create_tween().set_parallel(true)
-	_hitmarker_tween.tween_property(cross, "modulate", Color.WHITE, 0.25)
-	_hitmarker_tween.tween_property(cross, "scale", Vector2.ONE, 0.2)
-
-
-func _on_kill_announced(killer_id: int, victim_id: int) -> void:
-	var entry := Label.new()
-	entry.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	entry.add_theme_color_override("font_outline_color", Color.BLACK)
-	entry.add_theme_constant_override("outline_size", 4)
-	var my_id := multiplayer.get_unique_id()
-	if killer_id == my_id or victim_id == my_id:
-		entry.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
-	entry.text = "%s eliminou %s" % [
-		NetworkManager.get_player_label(killer_id), NetworkManager.get_player_label(victim_id)]
-	kill_feed.add_child(entry)
-	while kill_feed.get_child_count() > KILL_FEED_MAX:
-		var oldest := kill_feed.get_child(0)
-		kill_feed.remove_child(oldest)
-		oldest.queue_free()
-
-	var tween := entry.create_tween()
-	tween.tween_interval(KILL_FEED_TIME)
-	tween.tween_property(entry, "modulate:a", 0.0, 0.5)
-	tween.tween_callback(entry.queue_free)
-
-
-func _refresh_scoreboard() -> void:
-	var my_id := multiplayer.get_unique_id()
-	var lines := PackedStringArray()
-	lines.append("%s  |  ID: %d" % [NetworkManager.get_role_text(), my_id])
-	lines.append("Mapa: %s" % NetworkManager.get_map_name())
-	lines.append("— Placar (pontos / mortes) —")
-	var ids: Array = NetworkManager.scores.keys()
-	ids.sort_custom(func(a: int, b: int) -> bool:
-		return int(NetworkManager.scores[a]) > int(NetworkManager.scores[b]))
-	for id: int in ids:
-		var label := NetworkManager.get_player_label(id)
-		if id == my_id:
-			label += " (você)"
-		lines.append("%s: %d / %d" % [label, int(NetworkManager.scores[id]), int(NetworkManager.deaths.get(id, 0))])
-	score_label.text = "\n".join(lines)
+## Resumo legível por script (tests/smoke_test.sh) e sai.
+func _quit_with_report() -> void:
+	var total_deaths := 0
+	for id: int in NetworkManager.deaths:
+		total_deaths += int(NetworkManager.deaths[id])
+	print("RESULT online=%s role=%s map_ok=%s players=%d deaths=%d" % [
+		NetworkManager.is_online(), NetworkManager.get_role_text(), world.has_node("Map"),
+		players.get_child_count(), total_deaths])
+	print("SCORES %s" % NetworkManager.standings_text().replace("\n", " | "))
+	var loadouts := PackedStringArray()
+	for child in players.get_children():
+		var player := child as FPSPlayer
+		loadouts.append("%s=%s+%s+%s" % [NetworkManager.get_player_label(player.name.to_int()),
+			player.weapons[0].id, player.weapons[1].id, player.equipment.id if player.equipment != null else "-"])
+	print("LOADOUTS %s" % " ".join(loadouts))
+	var profile := Progress.profile
+	print("PROGRESS coins=%d xp=%d level=%d" % [profile.coins, profile.xp, profile.level()])
+	var habits := NetworkManager.habits.habits_for(multiplayer.get_unique_id())
+	if habits != null and multiplayer.is_server():
+		print("HABITS combat=%.1f bias=%.2f shots=%d skill=%.2f duels=%d/%d" % [habits.combat_time,
+			habits.strafe_bias, roundi(habits.shots[0] + habits.shots[1] + habits.shots[2]),
+			habits.skill, habits.duels_won, habits.duels_lost])
+		print("HABITS_TIP %s" % habits.insights(NetworkManager.habits.map_key())[0])
+	get_tree().quit()
