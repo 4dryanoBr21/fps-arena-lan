@@ -68,10 +68,11 @@ Precisa do Godot 4.7.2 e dos templates de exportação.
 
 ```bash
 ./export_windows.sh            # builds/windows/FPSArenaLAN.exe
+./export_linux.sh              # builds/linux/FPSArenaLAN.x86_64 (+ builds/FPSArenaLAN-linux.tar.gz)
 ./export_android.sh            # builds/android/FPSArenaLAN.apk
 ./export_android.sh --install  # gera e instala no celular via adb
 ```
 
 O build Android precisa do Android SDK (`~/Android/Sdk`) e de uma chave de assinatura
-(veja o cabeçalho de `export_android.sh`). Detalhes para jogadores em `LEIA-ME Windows.txt`
-e `LEIA-ME Android.txt`.
+(veja o cabeçalho de `export_android.sh`). Detalhes para jogadores em `LEIA-ME Windows.txt`,
+`LEIA-ME Linux.txt` e `LEIA-ME Android.txt`.

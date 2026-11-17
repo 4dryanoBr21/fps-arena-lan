@@ -1,0 +1,44 @@
+FPS ARENA LAN - COMO JOGAR NO LINUX
+===================================
+
+Requisitos: Linux 64 bits (x86_64) e placa de vídeo com Vulkan ou OpenGL 3.3.
+O jogo escolhe sozinho o que funcionar no seu PC.
+
+1) ABRIR
+   Extraia o FPSArenaLAN-linux.tar.gz e dê dois cliques em FPSArenaLAN.x86_64
+   ou, no terminal, dentro da pasta:
+       ./FPSArenaLAN.x86_64
+   Se não abrir, dê permissão de execução:  chmod +x FPSArenaLAN.x86_64
+
+2) HOSPEDAR (quem cria a partida)
+   Escolha o mapa e clique em "Criar partida (Host)". Se o computador tiver
+   firewall (firewalld, ufw), libere a porta 7777/UDP, por exemplo:
+       sudo firewall-cmd --add-port=7777/udp          (Fedora)
+       sudo ufw allow 7777/udp                        (Ubuntu)
+   e a 7778/UDP para a partida aparecer sozinha na lista dos outros.
+
+3) ENTRAR (quem joga junto)
+   A partida aparece na lista "Entrar numa partida". Se não aparecer, digite
+   o IP do host e clique em "Entrar". Todos precisam estar na mesma rede.
+   Linux, Windows e Android jogam juntos.
+
+4) TESTAR SOZINHO NO MESMO PC
+   Abra duas vezes: numa crie a partida, na outra entre com 127.0.0.1.
+
+ARSENAL
+   Cada partida rende moedas e XP (abates, tiros na cabeça, alvos e
+   colocação no fim). No menu, o botão "Arsenal" compra armas e
+   equipamentos e melhora as armas. O nível libera itens novos.
+
+TREINO ADAPTATIVO
+   Escolha o mapa "Treino adaptativo" e crie a partida. Os bots aprendem
+   como você se move e atira: os Caçadores exploram seus vícios e os
+   Espelhos jogam do seu jeito. O botão "Hábitos (IA)" mostra o que aprenderam.
+
+CONTROLES
+   WASD mover | Shift correr | Ctrl ou C agachar | Espaço pular
+   Clique esquerdo atirar | R recarregar | 1/2 ou Q trocar arma
+   Tab placar | ESC liberar o mouse (Configurações e Sair da partida)
+
+As configurações, o progresso e os hábitos ficam salvos em:
+   ~/.local/share/godot/app_userdata/FPS Arena LAN/
