@@ -35,10 +35,12 @@ jobs:
           ! grep -q "SCRIPT ERROR" import.log
 
       - name: Testes unitários
-        run: "$GODOT" --headless --path . --script res://tests/unit_tests.gd
+        run: |
+          "$GODOT" --headless --path . --script res://tests/unit_tests.gd
 
       - name: Teste de movimentação (física)
-        run: "$GODOT" --headless --path . res://tests/movement_test.tscn
+        run: |
+          "$GODOT" --headless --path . res://tests/movement_test.tscn
 
       - name: Teste de rede (host + bots + cliente)
         run: ./tests/smoke_test.sh
