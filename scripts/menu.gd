@@ -8,6 +8,7 @@ signal map_selected(map_index: int)
 signal settings_requested
 signal shop_requested
 signal habits_requested
+signal training_requested(bot_count: int)
 
 @onready var name_edit: LineEdit = %NameEdit
 @onready var profile_label: Label = %ProfileLabel
@@ -24,15 +25,19 @@ signal habits_requested
 
 
 func _ready() -> void:
-	for map: Dictionary in NetworkManager.MAPS:
-		map_option.add_item(map["name"])
+	# Só os mapas da LAN; o treino tem a linha própria (é solo e sem rede).
+	for i in NetworkManager.MAPS.size():
+		if NetworkManager.get_mode(i) != "training":
+			map_option.add_item(NetworkManager.MAPS[i]["name"], i)
 	bots_spin.max_value = NetworkManager.MAX_BOTS
 	name_edit.text = Settings.nickname
 	if GameInput.touch:
 		help_label.text = "Joystick à esquerda move (todo para a frente corre) · arraste à direita mira · botões para atirar, pular, agachar e recarregar"
 
-	map_option.item_selected.connect(map_selected.emit)
-	map_option.item_selected.connect(_on_map_chosen)
+	map_option.item_selected.connect(func(index: int) -> void: map_selected.emit(map_option.get_item_id(index)))
+	%TrainingButton.pressed.connect(func() -> void: training_requested.emit(int(%TrainingBotsSpin.value)))
+	%TrainingBotsSpin.min_value = NetworkManager.MIN_TRAINING_BOTS
+	%TrainingBotsSpin.max_value = NetworkManager.MAX_BOTS
 	name_edit.text_changed.connect(_on_name_changed)
 	host_button.pressed.connect(_on_host_pressed)
 	join_button.pressed.connect(_on_join_pressed)
@@ -43,17 +48,20 @@ func _ready() -> void:
 	_refresh_profile()
 	NetworkManager.status_changed.connect(set_status)
 	NetworkManager.discovery.servers_changed.connect(_refresh_servers)
+	UiFit.keep_fitted(self, $Center/Panel)
 	visibility_changed.connect(_on_visibility_changed)
 	_on_visibility_changed()
 
 
+## Índice em NetworkManager.MAPS (a lista do menu não tem o treino).
 func selected_map() -> int:
-	return map_option.selected
+	return map_option.get_item_id(map_option.selected)
 
 
 func select_map(map_index: int) -> void:
-	if map_option.selected != map_index:
-		map_option.select(map_index)
+	var item := map_option.get_item_index(map_index)
+	if item >= 0 and map_option.selected != item:
+		map_option.select(item)
 
 
 func set_status(text: String) -> void:
@@ -63,6 +71,7 @@ func set_status(text: String) -> void:
 func set_busy(busy: bool) -> void:
 	host_button.disabled = busy
 	join_button.disabled = busy
+	%TrainingButton.disabled = busy
 	map_option.disabled = busy
 	for child in server_list.get_children():
 		if child is Button:
@@ -77,13 +86,6 @@ func _on_visibility_changed() -> void:
 	else:
 		NetworkManager.discovery.stop_listening()
 	_refresh_servers()
-
-
-func _on_map_chosen(map_index: int) -> void:
-	if NetworkManager.get_mode(map_index) != "training":
-		return
-	bots_spin.value = maxf(bots_spin.value, 3)
-	set_status("Treino adaptativo: os Caçadores exploram seus vícios e os Espelhos jogam do seu jeito. Veja o que aprenderam em Hábitos (IA).")
 
 
 func _refresh_profile() -> void:
@@ -110,7 +112,7 @@ func _on_name_changed(text: String) -> void:
 
 
 func _on_host_pressed() -> void:
-	NetworkManager.host_game(_read_port(), map_option.selected, int(bots_spin.value))
+	NetworkManager.host_game(_read_port(), selected_map(), int(bots_spin.value))
 
 
 func _on_join_pressed() -> void:

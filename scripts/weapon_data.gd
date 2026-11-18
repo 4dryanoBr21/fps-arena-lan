@@ -3,7 +3,7 @@ extends ShopItem
 ## Dados de uma arma. O servidor usa os mesmos valores para validar cadência,
 ## munição e dano, então alterar aqui vale para todo mundo.
 
-enum Slot { PRIMARY, SECONDARY }
+enum Slot { PRIMARY, SECONDARY, MELEE }
 
 @export var slot: Slot = Slot.PRIMARY
 @export var body_damage: int = 25
@@ -15,6 +15,12 @@ enum Slot { PRIMARY, SECONDARY }
 ## Projéteis por disparo (escopeta > 1). O dano é por projétil.
 @export var pellets: int = 1
 @export var max_range: float = 100.0
+## Arma branca (faca): sem munição e sem recarga; acerta de perto.
+@export var melee: bool = false
+## Dano do golpe pelas costas (só armas brancas; 0 = igual ao normal).
+@export var backstab_damage: int = 0
+## Multiplica a velocidade de quem está com esta arma na mão.
+@export var move_speed_multiplier: float = 1.0
 
 @export_group("Dispersão e recuo (graus)")
 @export var base_spread: float = 0.0
@@ -26,11 +32,9 @@ enum Slot { PRIMARY, SECONDARY }
 ## Quanto a mira sobe a cada tiro.
 @export var recoil: float = 0.6
 
-@export_group("Som e visual")
-@export var sound: StringName = &"shot"
-@export var sound_pitch: float = 1.0
-## Escala do modelo da arma (o mesmo bloco serve para todas).
-@export var model_scale: Vector3 = Vector3.ONE
+@export_group("Som")
+## Base do nome dos arquivos do tiro: assets/sfx/<sound>_1..3.wav.
+@export var sound: StringName = &"shot_rifle"
 
 ## Nível de melhoria aplicado (0 = de fábrica). Só existe nas cópias de upgraded().
 var tier: int = 0
@@ -52,12 +56,22 @@ func upgraded(level: int, rules: GameRules) -> WeaponData:
 	return copy
 
 
+## Força do recuo visual (animação e clarão): ~0,6 na submetralhadora a
+## 2,4 no rifle de precisão. As melhorias, que diminuem o recuo, suavizam.
+func kick_strength() -> float:
+	return clampf(0.5 + recoil * 0.5, 0.6, 2.4)
+
+
 ## Disparos por minuto, para mostrar no Arsenal.
 func rate_per_minute() -> int:
 	return roundi(60.0 / fire_cooldown)
 
 
 func stats_text() -> String:
+	if melee:
+		return "Dano %d (pelas costas %d) · alcance %s m · %+d%% de velocidade" % [
+			body_damage, backstab_damage, ("%.1f" % max_range).replace(".", ","),
+			roundi((move_speed_multiplier - 1.0) * 100.0)]
 	var damage := "%d" % body_damage if pellets == 1 else "%d por projétil, %d projéteis" % [body_damage, pellets]
 	var reload := ("%.1f" % reload_time).replace(".", ",")
 	return "Dano %s (cabeça %d) · %d tiros/min · pente %d · recarga %s s · alcance %d m" % [

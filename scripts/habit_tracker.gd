@@ -1,6 +1,6 @@
 class_name HabitTracker
 extends Node
-## Só no servidor: observa os jogadores humanos 10 vezes por segundo e
+## Só no Treino adaptativo: observa o jogador 10 vezes por segundo e
 ## alimenta um PlayerHabits por jogador (movimento em combate, lugares no
 ## mapa, reação, precisão por distância e duelos contra bots de treino).
 ## O do host é o perfil salvo no autoload Habits; o dos outros vale a sessão.
@@ -81,8 +81,9 @@ func _physics_process(delta: float) -> void:
 
 
 func _is_learning() -> bool:
+	# Só o treino ensina a IA: o mata-mata com amigos não mexe nos hábitos.
 	return NetworkManager.is_online() and multiplayer.is_server() \
-		and NetworkManager.match_running and NetworkManager.get_mode() != "arena"
+		and NetworkManager.match_running and NetworkManager.get_mode() == "training"
 
 
 func _observe(player: FPSPlayer, players: Array[FPSPlayer]) -> void:
@@ -98,7 +99,9 @@ func _observe(player: FPSPlayer, players: Array[FPSPlayer]) -> void:
 	var right := Vector3(cos(player.net_yaw), 0.0, -sin(player.net_yaw))
 	var jumped := velocity.y > JUMP_SPEED and float(state["vy"]) <= JUMP_SPEED
 	var flat_speed := Vector2(velocity.x, velocity.z).length()
-	var sprinting := flat_speed > NetworkManager.RULES.walk_speed * player.speed_multiplier() * 1.1
+	# Máximo (e não o da arma na mão): o servidor não sabe na hora qual arma o
+	# jogador puxou, e andar de faca não pode contar como correr.
+	var sprinting := flat_speed > NetworkManager.RULES.walk_speed * player.max_speed_multiplier() * 1.1
 
 	var in_combat := false
 	var seen: Dictionary = state["seen"]
@@ -160,7 +163,7 @@ func observe_shot(shooter: FPSPlayer, origin: Vector3, direction: Vector3, hit: 
 ## Chamado pelo NetworkManager a cada abate: duelos humano x bot de treino
 ## ajustam a dificuldade.
 func observe_kill(killer_id: int, victim_id: int) -> void:
-	if not _is_learning() or NetworkManager.get_mode() != "training":
+	if not _is_learning():
 		return
 	var killer_is_bot := NetworkManager.is_bot_id(killer_id)
 	var victim_is_bot := NetworkManager.is_bot_id(victim_id)

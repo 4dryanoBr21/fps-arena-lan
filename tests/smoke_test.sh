@@ -36,6 +36,7 @@ grep -h "SCORES\|LOADOUTS" "$LOGS/client.log"
 tfail() { cat "$LOGS/training.log"; echo "FALHOU: $1"; exit 1; }
 grep -q "SCRIPT ERROR" "$LOGS/training.log" && tfail "erro de script no treino"
 grep -q "Caçador 1" "$LOGS/training.log" || tfail "bots de treino sem personalidade"
+grep -q "role=Treino" "$LOGS/training.log" || tfail "treino não rodou como sessão solo (sem rede)"
 HABITS=$(grep -o "HABITS .*" "$LOGS/training.log")
 BIAS=$(echo "$HABITS" | sed -E 's/.*bias=(-?[0-9.]+).*/\1/')
 SHOTS=$(echo "$HABITS" | sed -E 's/.*shots=([0-9]+).*/\1/')

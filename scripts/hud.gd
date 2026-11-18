@@ -1,8 +1,8 @@
 class_name GameHUD
 extends Control
 ## HUD da partida: vida, munição, placar, tempo, kill feed, mira, avisos de
-## dano, placar completo (Tab), prêmios em moedas/XP, tela de resultado, pausa
-## e controles de toque.
+## dano, números de dano sobre os inimigos, hotbar de armas, placar completo
+## (Tab), prêmios em moedas/XP, tela de resultado, pausa e controles de toque.
 ## Liga-se ao jogador local por bind_player().
 
 signal settings_requested
@@ -35,13 +35,12 @@ var _grid_dirty: bool = true
 
 @onready var damage_flash: ColorRect = %DamageFlash
 @onready var damage_indicator: DamageIndicator = %DamageIndicator
-@onready var cross: Control = %Cross
+@onready var cross: Crosshair = %Cross
 @onready var score_label: Label = %ScoreLabel
 @onready var timer_label: Label = %TimerLabel
 @onready var health_bar: ProgressBar = %HealthBar
 @onready var health_label: Label = %HealthLabel
-@onready var weapon_label: Label = %WeaponLabel
-@onready var ammo_label: Label = %AmmoLabel
+@onready var hotbar: Hotbar = %Hotbar
 @onready var kill_feed: VBoxContainer = %KillFeed
 @onready var reward_feed: VBoxContainer = %RewardFeed
 @onready var death_label: Label = %DeathLabel
@@ -67,6 +66,7 @@ func _ready() -> void:
 
 	NetworkManager.scores_changed.connect(_refresh_scores)
 	NetworkManager.hit_confirmed.connect(_on_hit_confirmed)
+	NetworkManager.damage_dealt.connect(_on_damage_dealt)
 	NetworkManager.kill_announced.connect(_on_kill_announced)
 	NetworkManager.match_state_changed.connect(_on_match_state_changed)
 	NetworkManager.match_over.connect(_on_match_over)
@@ -119,6 +119,7 @@ func reset() -> void:
 	scoreboard.hide()
 	_results_until_msec = 0
 	cross.show()
+	hotbar.clear()
 	damage_indicator.clear()
 	damage_indicator.player = null
 
@@ -130,12 +131,11 @@ func bind_player(player: FPSPlayer) -> void:
 	player.health_changed.connect(_on_health_changed)
 	player.died.connect(_on_died)
 	player.respawned.connect(_on_respawned)
-	player.ammo_changed.connect(_on_ammo_changed)
-	player.weapon_changed.connect(_on_weapon_changed)
+	player.view_changed.connect(_on_view_changed)
+	hotbar.bind(player)
+	_on_view_changed(FPSPlayer.view_mode)
 	player.damaged_from.connect(damage_indicator.add_hit)
 	_on_health_changed(player.max_health(), player.max_health(), false)
-	_on_weapon_changed(player.weapon_data())
-	_on_ammo_changed(player.ammo[player.weapon_index], player.weapon_data().magazine, false)
 
 
 func _on_health_changed(health: int, max_health: int, damaged: bool) -> void:
@@ -153,13 +153,9 @@ func _on_health_changed(health: int, max_health: int, damaged: bool) -> void:
 		_flash_tween.tween_property(damage_flash, "color:a", 0.0, 0.35)
 
 
-func _on_ammo_changed(ammo: int, magazine: int, reloading: bool) -> void:
-	ammo_label.text = "Recarregando" if reloading else "%d / %d" % [ammo, magazine]
-	ammo_label.modulate = Color(1.0, 0.45, 0.35) if ammo == 0 and not reloading else Color.WHITE
-
-
-func _on_weapon_changed(weapon: WeaponData) -> void:
-	weapon_label.text = weapon.display_name
+## Visão de frente (terceira pessoa olhando para o jogador): sem mira.
+func _on_view_changed(mode: int) -> void:
+	cross.visible = mode != FPSPlayer.ViewMode.FRONT and (_player == null or _player.alive)
 
 
 func _on_died(killer_id: int) -> void:
@@ -172,7 +168,7 @@ func _on_died(killer_id: int) -> void:
 
 func _on_respawned() -> void:
 	death_label.hide()
-	cross.show()
+	_on_view_changed(FPSPlayer.view_mode)
 
 
 func _on_hit_confirmed(killed: bool) -> void:
@@ -180,11 +176,18 @@ func _on_hit_confirmed(killed: bool) -> void:
 	GameInput.vibrate(40 if killed else 20)
 	if _hitmarker_tween != null:
 		_hitmarker_tween.kill()
-	cross.modulate = Color(1.0, 0.15, 0.15) if killed else Color(1.0, 0.85, 0.2)
+	# Tinge a mira (em vez de multiplicar a cor): aparece em qualquer cor escolhida.
+	cross.flash_color = Color(1.0, 0.15, 0.15) if killed else Color(1.0, 0.85, 0.2)
+	cross.flash = 1.0
 	cross.scale = Vector2.ONE * (1.8 if killed else 1.35)
 	_hitmarker_tween = create_tween().set_parallel(true)
-	_hitmarker_tween.tween_property(cross, "modulate", Color.WHITE, 0.25)
+	_hitmarker_tween.tween_property(cross, "flash", 0.0, 0.25)
 	_hitmarker_tween.tween_property(cross, "scale", Vector2.ONE, 0.2)
+
+
+func _on_damage_dealt(amount: int, at: Vector3, headshot: bool, killed: bool) -> void:
+	if Settings.damage_numbers:
+		Fx.damage_number(at, amount, headshot, killed)
 
 
 func _on_kill_announced(killer_id: int, victim_id: int) -> void:

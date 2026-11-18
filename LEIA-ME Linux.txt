@@ -31,13 +31,20 @@ ARSENAL
    equipamentos e melhora as armas. O nível libera itens novos.
 
 TREINO ADAPTATIVO
-   Escolha o mapa "Treino adaptativo" e crie a partida. Os bots aprendem
-   como você se move e atira: os Caçadores exploram seus vícios e os
-   Espelhos jogam do seu jeito. O botão "Hábitos (IA)" mostra o que aprenderam.
+   No menu, em "Treino adaptativo", escolha quantos bots e toque em
+   "Treinar". É só você e os bots, sem rede. Os bots aprendem como você
+   se move e atira: os Caçadores exploram seus vícios e os Espelhos jogam
+   do seu jeito. O botão "Hábitos (IA)" mostra o que aprenderam.
+
+MIRA
+   Em Configurações > Mira escolha um estilo pronto (cor, tamanho,
+   espessura, contorno) ou desenhe a sua mira pixel a pixel.
 
 CONTROLES
    WASD mover | Shift correr | Ctrl ou C agachar | Espaço pular
    Clique esquerdo atirar | R recarregar | 1/2 ou Q trocar arma
+   3 faca (corre mais rápido; pelas costas mata na hora)
+   F5 câmera (primeira pessoa, atrás, de frente)
    Tab placar | ESC liberar o mouse (Configurações e Sair da partida)
 
 As configurações, o progresso e os hábitos ficam salvos em:

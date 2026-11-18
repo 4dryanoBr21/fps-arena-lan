@@ -10,6 +10,10 @@ const RULES: GameRules = preload("res://data/game_rules.tres")
 const OWNED_COLOR := Color(0.6, 0.85, 1.0)
 const LOCKED_COLOR := Color(0.55, 0.55, 0.6)
 const EQUIPPED_COLOR := Color(0.45, 0.9, 0.5)
+## Miniatura 3D das armas (WeaponPreview).
+const PREVIEW_SIZE := Vector2i(150, 64)
+## Largura mínima enquadrada (m): armas curtas aparecem menores, dá noção de tamanho.
+const PREVIEW_MIN_WIDTH: float = 0.5
 
 var _row_style: StyleBoxFlat
 var _opening: bool = false
@@ -31,6 +35,7 @@ func _ready() -> void:
 	_row_style.bg_color = Color(0.04, 0.05, 0.07, 0.8)
 	_row_style.set_corner_radius_all(6)
 	_row_style.set_content_margin_all(10)
+	UiFit.keep_fitted(self, $Center/Panel)
 	close_button.pressed.connect(close)
 	# Adiado: a lista é refeita e o botão clicado não pode sumir no meio do próprio sinal.
 	Progress.changed.connect(_refresh, CONNECT_DEFERRED)
@@ -98,6 +103,8 @@ func _make_row(item: ShopItem) -> Control:
 	row.add_theme_constant_override("separation", 12)
 	panel.add_child(row)
 
+	if weapon != null:
+		row.add_child(WeaponPreview.create(weapon.id, PREVIEW_SIZE, PREVIEW_MIN_WIDTH))
 	var info := VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info)

@@ -1,0 +1,280 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/crosshair_editor.gd" id="1_editor"]
+[ext_resource type="Script" path="res://scripts/crosshair_canvas.gd" id="2_canvas"]
+[ext_resource type="Script" path="res://scripts/crosshair.gd" id="3_crosshair"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_panel"]
+bg_color = Color(0.08, 0.09, 0.12, 0.97)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_preview"]
+bg_color = Color(0.36, 0.42, 0.48, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[node name="CrosshairEditor" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_editor")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(860, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_panel")
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "Mira"
+horizontal_alignment = 1
+
+[node name="Columns" type="HBoxContainer" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="Left" type="VBoxContainer" parent="Center/Panel/Margin/VBox/Columns"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DrawTitle" type="Label" parent="Center/Panel/Margin/VBox/Columns/Left"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.85, 1, 1)
+text = "Desenhe a sua"
+
+[node name="Canvas" type="Control" parent="Center/Panel/Margin/VBox/Columns/Left"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(336, 336)
+layout_mode = 2
+script = ExtResource("2_canvas")
+
+[node name="DrawHint" type="Label" parent="Center/Panel/Margin/VBox/Columns/Left"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(336, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
+theme_override_font_sizes/font_size = 13
+text = "Botão esquerdo pinta, direito apaga. O quadrado vermelho é o centro (onde a bala vai)."
+autowrap_mode = 3
+
+[node name="Tools" type="HBoxContainer" parent="Center/Panel/Margin/VBox/Columns/Left"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EraserCheck" type="CheckButton" parent="Center/Panel/Margin/VBox/Columns/Left/Tools"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Borracha"
+
+[node name="MirrorCheck" type="CheckButton" parent="Center/Panel/Margin/VBox/Columns/Left/Tools"]
+unique_name_in_owner = true
+layout_mode = 2
+button_pressed = true
+text = "Espelhar"
+
+[node name="Tools2" type="HBoxContainer" parent="Center/Panel/Margin/VBox/Columns/Left"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ClearButton" type="Button" parent="Center/Panel/Margin/VBox/Columns/Left/Tools2"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Limpar"
+
+[node name="DefaultDrawingButton" type="Button" parent="Center/Panel/Margin/VBox/Columns/Left/Tools2"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Desenho padrão"
+
+[node name="Right" type="VBoxContainer" parent="Center/Panel/Margin/VBox/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="PreviewTitle" type="Label" parent="Center/Panel/Margin/VBox/Columns/Right"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.85, 1, 1)
+text = "Prévia (tamanho real)"
+
+[node name="Preview" type="PanelContainer" parent="Center/Panel/Margin/VBox/Columns/Right"]
+custom_minimum_size = Vector2(0, 130)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_preview")
+
+[node name="PreviewCenter" type="CenterContainer" parent="Center/Panel/Margin/VBox/Columns/Right/Preview"]
+layout_mode = 2
+
+[node name="PreviewCrosshair" type="Control" parent="Center/Panel/Margin/VBox/Columns/Right/Preview/PreviewCenter"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 128)
+layout_mode = 2
+script = ExtResource("3_crosshair")
+
+[node name="Grid" type="GridContainer" parent="Center/Panel/Margin/VBox/Columns/Right"]
+layout_mode = 2
+theme_override_constants/h_separation = 14
+theme_override_constants/v_separation = 6
+columns = 2
+
+[node name="StyleLabel" type="Label" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+layout_mode = 2
+text = "Estilo"
+
+[node name="StyleOption" type="OptionButton" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ColorLabel" type="Label" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+layout_mode = 2
+text = "Cor"
+
+[node name="ColorPicker" type="ColorPickerButton" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+edit_alpha = false
+
+[node name="OpacityLabel" type="Label" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+layout_mode = 2
+text = "Opacidade"
+
+[node name="OpacitySlider" type="HSlider" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.2
+max_value = 1.0
+step = 0.05
+
+[node name="SizeLabel" type="Label" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+layout_mode = 2
+text = "Tamanho"
+
+[node name="SizeSlider" type="HSlider" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 2.0
+max_value = 30.0
+step = 1.0
+
+[node name="ThicknessLabel" type="Label" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+layout_mode = 2
+text = "Espessura"
+
+[node name="ThicknessSlider" type="HSlider" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 1.0
+max_value = 8.0
+step = 0.5
+
+[node name="GapLabel" type="Label" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+layout_mode = 2
+text = "Espaço no meio"
+
+[node name="GapSlider" type="HSlider" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.0
+max_value = 20.0
+step = 1.0
+
+[node name="PixelSizeLabel" type="Label" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+layout_mode = 2
+text = "Tamanho do pixel (desenho)"
+
+[node name="PixelSizeSlider" type="HSlider" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 1.0
+max_value = 5.0
+step = 1.0
+
+[node name="OutlineLabel" type="Label" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+layout_mode = 2
+text = "Contorno preto"
+
+[node name="OutlineCheck" type="CheckButton" parent="Center/Panel/Margin/VBox/Columns/Right/Grid"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Bottom" type="HBoxContainer" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="StatusLabel" type="Label" parent="Center/Panel/Margin/VBox/Bottom"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.6, 0.85, 1, 1)
+autowrap_mode = 3
+
+[node name="ResetButton" type="Button" parent="Center/Panel/Margin/VBox/Bottom"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(170, 40)
+layout_mode = 2
+text = "Mira padrão"
+
+[node name="CloseButton" type="Button" parent="Center/Panel/Margin/VBox/Bottom"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 40)
+layout_mode = 2
+text = "Pronto"

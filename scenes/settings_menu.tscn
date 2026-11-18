@@ -242,6 +242,18 @@ size_flags_horizontal = 0
 [node name="ShowFpsSpacer" type="Control" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
 layout_mode = 2
 
+[node name="DamageNumbersLabel" type="Label" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
+layout_mode = 2
+text = "Números de dano"
+
+[node name="DamageNumbersCheck" type="CheckButton" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="DamageNumbersSpacer" type="Control" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
+layout_mode = 2
+
 [node name="ButtonScaleLabel" type="Label" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
 layout_mode = 2
 text = "Tamanho dos botões"
@@ -297,6 +309,20 @@ layout_mode = 2
 size_flags_horizontal = 0
 
 [node name="GyroSpacer" type="Control" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
+layout_mode = 2
+
+[node name="CrosshairLabel" type="Label" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
+layout_mode = 2
+text = "Mira"
+
+[node name="CrosshairButton" type="Button" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Personalizar / desenhar"
+
+[node name="CrosshairSpacer" type="Control" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
 layout_mode = 2
 
 [node name="TouchLayoutLabel" type="Label" parent="Center/Panel/Margin/VBox/Scroll/Grid"]

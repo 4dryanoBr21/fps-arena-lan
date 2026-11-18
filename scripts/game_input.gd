@@ -16,6 +16,8 @@ var crouch_toggled: bool = false
 var reload_pressed: bool = false
 var switch_weapon_pressed: bool = false
 var scoreboard_held: bool = false
+## Trocar a câmera (primeira / terceira pessoa); vale uma vez por toque.
+var view_pressed: bool = false
 
 var _paused: bool = true
 var _look_delta: Vector2 = Vector2.ZERO
@@ -74,6 +76,12 @@ func consume_reload() -> bool:
 	return pressed
 
 
+func consume_view() -> bool:
+	var pressed := view_pressed
+	view_pressed = false
+	return pressed
+
+
 func consume_switch_weapon() -> bool:
 	var pressed := switch_weapon_pressed
 	switch_weapon_pressed = false
@@ -93,4 +101,5 @@ func reset_touch_state() -> void:
 	reload_pressed = false
 	switch_weapon_pressed = false
 	scoreboard_held = false
+	view_pressed = false
 	_look_delta = Vector2.ZERO

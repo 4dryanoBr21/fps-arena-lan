@@ -3,21 +3,6 @@ extends RefCounted
 ## Contas de tiro sem dependência de cena (testadas em tests/unit_tests.gd).
 
 
-## Distância ao longo do raio até a cápsula vertical que começa em `feet`,
-## ou -1 se o raio não passa por ela. `direction` precisa estar normalizada.
-static func ray_capsule_distance(origin: Vector3, direction: Vector3, max_distance: float,
-		feet: Vector3, height: float, radius: float) -> float:
-	var ray_end := origin + direction * max_distance
-	var axis_low := feet + Vector3.UP * radius
-	var axis_high := feet + Vector3.UP * maxf(height - radius, radius)
-	var points := Geometry3D.get_closest_points_between_segments(origin, ray_end, axis_low, axis_high)
-	var gap := points[0].distance_to(points[1])
-	if gap > radius:
-		return -1.0
-	var along := origin.distance_to(points[0])
-	return maxf(along - sqrt(radius * radius - gap * gap), 0.0)
-
-
 ## Direção dentro de um cone de `spread_deg` graus em volta de `forward`.
 static func spread_direction(forward: Vector3, spread_deg: float, rng: RandomNumberGenerator) -> Vector3:
 	if spread_deg <= 0.0:
@@ -34,7 +19,18 @@ static func spread_direction(forward: Vector3, spread_deg: float, rng: RandomNum
 	return (forward + offset).normalized()
 
 
-## Interpola um histórico [[msec, Vector3, bool], ...] (mais antigo primeiro) no instante pedido.
+## Entrada do histórico [[msec, ...], ...] em vigor no instante pedido: a
+## última com tempo <= msec (ou a primeira, se o instante é anterior a todas).
+static func history_entry_at(history: Array, msec: int) -> Array:
+	if history.is_empty():
+		return []
+	for i in range(history.size() - 1, -1, -1):
+		if int(history[i][0]) <= msec:
+			return history[i]
+	return history[0]
+
+
+## Interpola um histórico [[msec, Vector3, ...], ...] (mais antigo primeiro) no instante pedido.
 static func sample_history(history: Array, msec: int, fallback: Vector3) -> Vector3:
 	if history.is_empty():
 		return fallback
@@ -50,3 +46,14 @@ static func sample_history(history: Array, msec: int, fallback: Vector3) -> Vect
 			var t := 0.0 if span <= 0.0 else float(msec - int(older[0])) / span
 			return (older[1] as Vector3).lerp(newer[1], t)
 	return fallback
+
+
+## Golpe pelas costas: a vítima (virada para `victim_yaw`) está de costas para
+## o atacante, dentro de um cone de `half_angle_deg` atrás dela.
+static func is_backstab(attacker: Vector3, victim: Vector3, victim_yaw: float, half_angle_deg: float = 60.0) -> bool:
+	var to_victim := Vector2(victim.x - attacker.x, victim.z - attacker.z)
+	if to_victim.length_squared() < 0.0001:
+		return false
+	var victim_forward := Vector2(-sin(victim_yaw), -cos(victim_yaw))
+	return victim_forward.dot(to_victim.normalized()) > cos(deg_to_rad(half_angle_deg))
+

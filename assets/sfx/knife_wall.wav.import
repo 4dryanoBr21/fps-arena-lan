@@ -2,13 +2,13 @@
 
 importer="wav"
 type="AudioStreamWAV"
-uid="uid://urq6gb2qghxg"
-path="res://.godot/imported/shot.wav-178e84ee474a987715212f9fdb1f9ff4.sample"
+uid="uid://c0wgh6xb41os8"
+path="res://.godot/imported/knife_wall.wav-184704d015ab1d2ee783794ed577bc33.sample"
 
 [deps]
 
-source_file="res://assets/sfx/shot.wav"
-dest_files=["res://.godot/imported/shot.wav-178e84ee474a987715212f9fdb1f9ff4.sample"]
+source_file="res://assets/sfx/knife_wall.wav"
+dest_files=["res://.godot/imported/knife_wall.wav-184704d015ab1d2ee783794ed577bc33.sample"]
 
 [params]
 

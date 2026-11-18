@@ -25,6 +25,8 @@ var quality: int = QUALITY_HIGH
 ## Escala da renderização 3D (0.5 = metade da resolução, mais leve).
 var render_scale: float = 1.0
 var show_fps: bool = false
+## Números de dano sobre a cabeça do inimigo (como no Fortnite).
+var damage_numbers: bool = true
 ## Controles de toque.
 var button_scale: float = 1.0
 ## id do botão -> posição (fração da tela). Vazio = posições padrão.
@@ -34,6 +36,17 @@ var aim_assist: bool = true
 var gyro_aim: bool = false
 ## Melhor pontuação na Arena de Alvos (contra o relógio).
 var arena_record: int = 0
+## Mira (Crosshair): estilo, cor e medidas em pixels; o desenho fica em
+## crosshair_pixels (grade Crosshair.GRID², 1 = pintado).
+var crosshair_style: int = Crosshair.Style.CROSS
+var crosshair_color: Color = Color.WHITE
+var crosshair_opacity: float = 1.0
+var crosshair_size: float = 8.0
+var crosshair_thickness: float = 2.0
+var crosshair_gap: float = 3.0
+var crosshair_outline: bool = true
+var crosshair_pixel_size: float = 2.0
+var crosshair_pixels: PackedByteArray = Crosshair.default_pixels()
 
 
 func _ready() -> void:
@@ -57,12 +70,22 @@ static func defaults() -> Dictionary:
 		"quality": QUALITY_LOW if mobile else QUALITY_HIGH,
 		"render_scale": 0.75 if mobile else 1.0,
 		"show_fps": false,
+		"damage_numbers": true,
 		"button_scale": 1.0,
 		"touch_layout": {},
 		"vibration": true,
 		"aim_assist": true,
 		"gyro_aim": false,
 		"arena_record": 0,
+		"crosshair_style": Crosshair.Style.CROSS,
+		"crosshair_color": Color.WHITE,
+		"crosshair_opacity": 1.0,
+		"crosshair_size": 8.0,
+		"crosshair_thickness": 2.0,
+		"crosshair_gap": 3.0,
+		"crosshair_outline": true,
+		"crosshair_pixel_size": 2.0,
+		"crosshair_pixels": Crosshair.default_pixels(),
 	}
 
 
@@ -72,7 +95,15 @@ func load_settings() -> void:
 		return
 	var values := defaults()
 	for key: String in values:
-		set(key, config.get_value(SECTION, key, values[key]))
+		var value: Variant = config.get_value(SECTION, key, values[key])
+		# Save de outra versão ou editado à mão: tipo errado volta ao padrão.
+		if typeof(value) != typeof(values[key]) and not (value is float and values[key] is int) \
+				and not (value is int and values[key] is float):
+			value = values[key]
+		set(key, value)
+	if not Crosshair.is_valid_pixels(crosshair_pixels):
+		crosshair_pixels = Crosshair.default_pixels()
+	crosshair_style = clampi(crosshair_style, 0, Crosshair.Style.size() - 1)
 
 
 func save_settings() -> void:
@@ -84,15 +115,24 @@ func save_settings() -> void:
 		push_warning("Não foi possível salvar as configurações (código %d)." % err)
 
 
-## Volta aos padrões (o apelido e o recorde ficam).
+## Volta aos padrões (o apelido, o recorde e o desenho da mira ficam).
 func reset_to_defaults(apply_now: bool = true) -> void:
 	var values := defaults()
 	for key: String in values:
-		if key in ["nickname", "arena_record"] and apply_now:
+		if key in ["nickname", "arena_record", "crosshair_pixels"] and apply_now:
 			continue
 		set(key, values[key])
 	if apply_now:
 		apply()
+
+
+## Volta a mira aos padrões, menos o desenho (que tem botões próprios no editor).
+func reset_crosshair() -> void:
+	var values := defaults()
+	for key: String in values:
+		if key.begins_with("crosshair_") and key != "crosshair_pixels":
+			set(key, values[key])
+	changed.emit()
 
 
 ## Aplica o que é global (janela, áudio, render) e avisa quem depende do resto.

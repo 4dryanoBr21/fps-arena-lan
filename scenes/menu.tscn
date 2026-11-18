@@ -216,6 +216,44 @@ custom_minimum_size = Vector2(100, 36)
 layout_mode = 2
 text = "Entrar"
 
+[node name="TrainingRow" type="HBoxContainer" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TrainingInfo" type="VBoxContainer" parent="Center/Panel/Margin/VBox/TrainingRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TrainingTitle" type="Label" parent="Center/Panel/Margin/VBox/TrainingRow/TrainingInfo"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.85, 1, 1)
+text = "Treino adaptativo"
+
+[node name="TrainingHint" type="Label" parent="Center/Panel/Margin/VBox/TrainingRow/TrainingInfo"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
+theme_override_font_sizes/font_size = 13
+text = "Sozinho e sem rede. Caçadores exploram seus vícios; Espelhos jogam do seu jeito."
+autowrap_mode = 3
+
+[node name="TrainingBotsLabel" type="Label" parent="Center/Panel/Margin/VBox/TrainingRow"]
+layout_mode = 2
+text = "Bots"
+
+[node name="TrainingBotsSpin" type="SpinBox" parent="Center/Panel/Margin/VBox/TrainingRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 36)
+layout_mode = 2
+min_value = 2.0
+max_value = 6.0
+value = 3.0
+
+[node name="TrainingButton" type="Button" parent="Center/Panel/Margin/VBox/TrainingRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 40)
+layout_mode = 2
+text = "Treinar"
+
 [node name="StatusLabel" type="Label" parent="Center/Panel/Margin/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(600, 0)
@@ -240,5 +278,5 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
 theme_override_font_sizes/font_size = 13
-text = "WASD · Shift corre · Ctrl agacha · Espaço pula · Clique atira · R recarrega · 1/2 arma · Tab placar · ESC pausa"
+text = "WASD · Shift corre · Ctrl agacha · Espaço pula · Clique atira · R recarrega · 1/2/3 arma (3 = faca) · F5 câmera · Tab placar · ESC pausa"
 autowrap_mode = 3

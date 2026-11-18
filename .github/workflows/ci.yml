@@ -42,6 +42,18 @@ jobs:
         run: |
           "$GODOT" --headless --path . res://tests/movement_test.tscn
 
+      - name: Teste das hitboxes (cabeça, pernas, alvo correndo, agachado)
+        run: |
+          "$GODOT" --headless --path . res://tests/hitbox_test.tscn
+
+      - name: Teste da faca (golpe, alcance, pelas costas)
+        run: |
+          "$GODOT" --headless --path . res://tests/knife_test.tscn
+
+      - name: Teste do editor de mira
+        run: |
+          "$GODOT" --headless --path . res://tests/crosshair_test.tscn
+
       - name: Teste de rede (host + bots + cliente)
         run: ./tests/smoke_test.sh
 

@@ -16,8 +16,8 @@ extends Resource
 @export var respawn_time: float = 3.0
 ## Segundos invulnerável ao renascer (acaba antes se o jogador atirar).
 @export var spawn_protection: float = 1.5
-## Fração da altura do corpo acima da qual o acerto conta como na cabeça.
-@export var head_height_ratio: float = 0.8
+## Dano nas pernas em relação ao do corpo (hitboxes em scripts/hitboxes.gd).
+@export var leg_damage_ratio: float = 0.75
 
 @export_group("Partida")
 ## Mata-mata: duração (s) e limite de abates.
@@ -36,6 +36,8 @@ extends Resource
 ## Armas com que todo mundo começa (precisam ter preço 0).
 @export var default_primary: String = "rifle"
 @export var default_secondary: String = "pistol"
+## Arma branca que todo mundo leva na terceira vaga (não se compra).
+@export var default_melee: String = "knife"
 ## Preço de cada nível de melhoria de arma (o tamanho define o nível máximo).
 @export var upgrade_prices: Array[int] = [250, 500, 900]
 ## Por nível de melhoria: pente maior e recarga/recuo/dispersão menores.

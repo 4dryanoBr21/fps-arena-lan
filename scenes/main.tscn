@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/menu.tscn" id="2_menu"]
@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://scenes/settings_menu.tscn" id="4_settings"]
 [ext_resource type="PackedScene" path="res://scenes/shop.tscn" id="5_shop"]
 [ext_resource type="PackedScene" path="res://scenes/habits_panel.tscn" id="6_habits"]
+[ext_resource type="PackedScene" path="res://scenes/crosshair_editor.tscn" id="7_crosshair"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
@@ -57,4 +58,7 @@ visible = false
 visible = false
 
 [node name="HabitsPanel" parent="UI" instance=ExtResource("6_habits")]
+visible = false
+
+[node name="CrosshairEditor" parent="UI" instance=ExtResource("7_crosshair")]
 visible = false

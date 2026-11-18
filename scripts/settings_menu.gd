@@ -6,6 +6,7 @@ extends Control
 
 signal closed
 signal touch_layout_requested
+signal crosshair_requested
 
 ## Linha -> chave em Settings. Sliders mostram o valor ao lado.
 const SLIDERS := {
@@ -21,6 +22,7 @@ const CHECKS := {
 	"Fullscreen": "fullscreen",
 	"Vsync": "vsync",
 	"ShowFps": "show_fps",
+	"DamageNumbers": "damage_numbers",
 	"Vibration": "vibration",
 	"AimAssist": "aim_assist",
 	"Gyro": "gyro_aim",
@@ -54,6 +56,7 @@ func _ready() -> void:
 		_check(row).toggled.connect(_on_setting_changed.bind(CHECKS[row]))
 	quality_option.item_selected.connect(_on_setting_changed.bind("quality"))
 	touch_layout_button.pressed.connect(_on_touch_layout_pressed)
+	%CrosshairButton.pressed.connect(crosshair_requested.emit)
 	reset_button.pressed.connect(_on_reset_pressed)
 	close_button.pressed.connect(close)
 

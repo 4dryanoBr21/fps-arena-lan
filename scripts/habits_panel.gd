@@ -18,6 +18,7 @@ var _confirming_reset: bool = false
 func _ready() -> void:
 	hide()
 	reset_button.pressed.connect(_on_reset_pressed)
+	UiFit.keep_fitted(self, $Center/Panel)
 	close_button.pressed.connect(close)
 
 

@@ -3,8 +3,9 @@ extends Node
 ## IA dos bots, só no servidor. Escolhe o inimigo (ou alvo da arena)
 ## visível mais perto, vira para ele com velocidade limitada e erro de mira
 ## proposital, anda de lado e atira depois de um tempo de reação. Sem ninguém
-## à vista, corre entre os pontos de spawn. O FPSPlayer lê move/jump/sprint/
-## crouch/fire.
+## à vista, corre entre os pontos de spawn (de faca, que é mais rápido). Puxa
+## a faca quando o alvo chega perto e a arma de fogo quando ele se afasta.
+## O FPSPlayer lê move/jump/sprint/crouch/fire/weapon.
 ##
 ## No Treino adaptativo os bots usam o que o HabitTracker aprendeu do jogador:
 ## - Caçador: prevê para onde você vai desviar, patrulha os lugares onde você
@@ -35,12 +36,20 @@ const HOT_SPOT_CHANCE: float = 0.75
 const STANDARD_DISTANCE: float = 10.0
 const STANDARD_BAND: float = 5.0
 const ADAPTIVE_BAND: float = 3.0
+## Índices das armas no FPSPlayer.weapons e quando usar cada uma.
+const PRIMARY: int = 0
+const KNIFE: int = 2
+const KNIFE_SWITCH_DISTANCE: float = 3.0
+const GUN_SWITCH_DISTANCE: float = 6.0
+const KNIFE_FIRE_ANGLE_DEG: float = 20.0
 
 var move: Vector2 = Vector2.ZERO
 var jump: bool = false
 var sprint: bool = false
 var crouch: bool = false
 var fire: bool = false
+## Arma que o bot quer na mão.
+var weapon: int = PRIMARY
 var personality: Personality = Personality.STANDARD
 
 var _player: FPSPlayer
@@ -104,6 +113,15 @@ func _fight(delta: float) -> void:
 	if habits != null and personality != Personality.STANDARD:
 		band = ADAPTIVE_BAND
 		desired = habits.weakest_range_distance() if personality == Personality.HUNTER else habits.preferred_distance
+	# Faca: perto puxa e parte para cima; longe volta para a arma de fogo.
+	if distance < KNIFE_SWITCH_DISTANCE or _target is ShootingTarget and distance < KNIFE_SWITCH_DISTANCE:
+		weapon = KNIFE
+	elif distance > GUN_SWITCH_DISTANCE:
+		weapon = PRIMARY
+	var knife := weapon == KNIFE
+	if knife:
+		desired = 0.8
+		band = 0.4
 	var forward := 0.0
 	if distance > desired + band:
 		forward = -0.7
@@ -117,7 +135,11 @@ func _fight(delta: float) -> void:
 		if _crouch_timer <= 0.0:
 			_crouch_timer = 1.5
 			crouch = _rng.randf() < habits.crouch_ratio
-	fire = _seen_for > _reaction_time() and _angle_to(aim_point) < FIRE_ANGLE_DEG
+	if knife:
+		var reach := _player.weapon_data().max_range if _player.weapon_data().melee else 0.0
+		fire = _seen_for > _reaction_time() and distance <= reach and _angle_to(aim_point) < KNIFE_FIRE_ANGLE_DEG
+	else:
+		fire = _seen_for > _reaction_time() and _angle_to(aim_point) < FIRE_ANGLE_DEG
 
 
 ## Novo trecho de desvio lateral e novo erro de mira.
@@ -177,6 +199,8 @@ func _habits_of(node: Node3D) -> PlayerHabits:
 
 
 func _wander(delta: float) -> void:
+	# Sem ninguém à vista, corre de faca (é mais leve).
+	weapon = KNIFE
 	if not _has_goal or _flat_distance(_goal) < GOAL_REACHED:
 		_pick_goal()
 	_turn_toward(_goal + Vector3.UP * 1.5, delta)

@@ -1,8 +1,10 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/hud.gd" id="1_hud"]
 [ext_resource type="Script" path="res://scripts/touch_controls.gd" id="2_touch"]
 [ext_resource type="Script" path="res://scripts/damage_indicator.gd" id="3_damage"]
+[ext_resource type="Script" path="res://scripts/crosshair.gd" id="4_crosshair"]
+[ext_resource type="Script" path="res://scripts/hotbar.gd" id="5_hotbar"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_panel"]
 bg_color = Color(0.08, 0.09, 0.12, 0.88)
@@ -79,24 +81,11 @@ mouse_filter = 2
 
 [node name="Cross" type="Control" parent="Crosshair"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(22, 22)
+custom_minimum_size = Vector2(128, 128)
 layout_mode = 2
 mouse_filter = 2
-pivot_offset = Vector2(11, 11)
-
-[node name="Horizontal" type="ColorRect" parent="Crosshair/Cross"]
-layout_mode = 0
-offset_top = 10.0
-offset_right = 22.0
-offset_bottom = 12.0
-mouse_filter = 2
-
-[node name="Vertical" type="ColorRect" parent="Crosshair/Cross"]
-layout_mode = 0
-offset_left = 10.0
-offset_right = 12.0
-offset_bottom = 22.0
-mouse_filter = 2
+pivot_offset = Vector2(64, 64)
+script = ExtResource("4_crosshair")
 
 [node name="ScorePanel" type="PanelContainer" parent="."]
 layout_mode = 0
@@ -144,7 +133,7 @@ anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 16.0
 offset_top = -68.0
-offset_right = 476.0
+offset_right = 296.0
 offset_bottom = -16.0
 grow_vertical = 0
 mouse_filter = 2
@@ -187,22 +176,21 @@ theme_override_font_sizes/font_size = 20
 text = "100"
 horizontal_alignment = 2
 
-[node name="Separator" type="VSeparator" parent="HealthPanel/HealthMargin/HealthRow"]
-layout_mode = 2
-
-[node name="WeaponLabel" type="Label" parent="HealthPanel/HealthMargin/HealthRow"]
+[node name="Hotbar" type="HBoxContainer" parent="."]
 unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.75, 0.85, 1)
-text = "Rifle"
-
-[node name="AmmoLabel" type="Label" parent="HealthPanel/HealthMargin/HealthRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(70, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "12 / 12"
-horizontal_alignment = 2
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_top = -112.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+alignment = 1
+script = ExtResource("5_hotbar")
 
 [node name="KillFeed" type="VBoxContainer" parent="."]
 unique_name_in_owner = true

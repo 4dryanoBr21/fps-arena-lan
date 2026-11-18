@@ -22,6 +22,7 @@ const BUTTONS := {
 	"weapon": [Vector2(1, 1), Vector2(-70, -350), 32.0],
 	"scoreboard": [Vector2(0.5, 0), Vector2(-80, 44), 26.0],
 	"pause": [Vector2(0.5, 0), Vector2(80, 44), 26.0],
+	"view": [Vector2(0.5, 0), Vector2(150, 44), 26.0],
 }
 const EDIT_DONE_SIZE: Vector2 = Vector2(150, 48)
 
@@ -89,6 +90,8 @@ func _on_press(finger: int, pos: Vector2) -> void:
 			GameInput.switch_weapon_pressed = true
 		"scoreboard":
 			GameInput.scoreboard_held = true
+		"view":
+			GameInput.view_pressed = true
 		_:
 			if pos.x < size.x * 0.5 and _stick_finger < 0:
 				_stick_finger = finger
@@ -222,6 +225,7 @@ func _draw() -> void:
 	_draw_button("weapon", Color(0.55, 0.4, 0.85))
 	_draw_button("scoreboard", Color(0.0, 0.0, 0.0))
 	_draw_button("pause", Color(0.0, 0.0, 0.0))
+	_draw_button("view", Color(0.0, 0.0, 0.0))
 
 	var s := Settings.button_scale
 	var fire := button_center("fire")
@@ -243,11 +247,14 @@ func _draw() -> void:
 
 	var weapon := button_center("weapon")
 	var font := ThemeDB.fallback_font
-	draw_string(font, weapon + Vector2(-14, 7) * s, "1/2", HORIZONTAL_ALIGNMENT_LEFT, -1, int(18 * s), white)
+	draw_string(font, weapon + Vector2(-17, 6) * s, "1/2/3", HORIZONTAL_ALIGNMENT_LEFT, -1, int(13 * s), white)
 
 	var board := button_center("scoreboard")
 	for i in 3:
 		draw_rect(Rect2(board + Vector2(-10, -9 + i * 7) * s, Vector2(20, 3) * s), white)
+
+	var view := button_center("view")
+	draw_string(font, view + Vector2(-16, 5) * s, "CAM", HORIZONTAL_ALIGNMENT_LEFT, -1, int(13 * s), white)
 
 	var pause := button_center("pause")
 	draw_rect(Rect2(pause + Vector2(-9, -10) * s, Vector2(6, 20) * s), white)

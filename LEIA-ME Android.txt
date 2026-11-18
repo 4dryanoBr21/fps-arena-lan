@@ -26,10 +26,14 @@ ARSENAL
    O progresso fica salvo no celular e vale a partir da próxima partida.
 
 TREINO ADAPTATIVO
-   Escolha o mapa "Treino adaptativo" e crie a partida. Os bots aprendem
-   como você se move e atira: os Caçadores exploram seus vícios e os
-   Espelhos jogam do seu jeito. Ficam mais difíceis quando você vence.
-   O botão "Hábitos (IA)" do menu mostra o que eles aprenderam.
+   No menu, em "Treino adaptativo", escolha quantos bots e toque em
+   "Treinar". É só você e os bots, sem rede. Os bots aprendem como você
+   se move e atira: os Caçadores exploram seus vícios e os Espelhos jogam
+   do seu jeito. O botão "Hábitos (IA)" mostra o que aprenderam.
+
+MIRA
+   Em Configurações > Mira escolha um estilo pronto (cor, tamanho,
+   espessura, contorno) ou desenhe a sua mira pixel a pixel.
 
 CONTROLES (TOQUE)
    Metade esquerda da tela: joystick (encoste o dedo onde quiser e arraste)
@@ -37,6 +41,9 @@ CONTROLES (TOQUE)
    Botão vermelho: atirar (segure para atirar sem parar; dá para mirar
                    arrastando o mesmo dedo)
    Botão azul: pular
+   Botão roxo (1/2/3): troca entre as duas armas e a faca. Com a faca
+                   você corre mais rápido; pelas costas ela mata na hora.
+   Botão CAM (no alto): câmera em primeira pessoa, atrás ou de frente
    Botão de pausa (no alto) ou "voltar" do Android: pausa, Configurações
                    e Sair da partida
    A sensibilidade da mira fica em Configurações.

@@ -8,7 +8,7 @@ var _checks: int = 0
 
 
 func _initialize() -> void:
-	_test_ray_capsule()
+	_test_hitboxes()
 	_test_spread()
 	_test_history()
 	_test_announcement()
@@ -22,6 +22,8 @@ func _initialize() -> void:
 	_test_habits_combat()
 	_test_habits_skill()
 	_test_habits_save()
+	_test_weapon_models()
+	_test_knife()
 	print("%d verificações, %d falha(s)" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
 
@@ -33,23 +35,38 @@ func _check(condition: bool, label: String) -> void:
 		printerr("FALHOU: " + label)
 
 
-func _test_ray_capsule() -> void:
+func _test_hitboxes() -> void:
 	var feet := Vector3(0, 0, -10)
-	# Raio reto na altura do peito acerta a 10 m menos o raio da cápsula.
-	var d := CombatMath.ray_capsule_distance(Vector3(0, 1.2, 0), Vector3.FORWARD, 100.0, feet, 1.8, 0.4)
-	_check(absf(d - 9.6) < 0.01, "cápsula: distância no peito (%f)" % d)
-	# Passa 0,5 m ao lado: erra.
-	d = CombatMath.ray_capsule_distance(Vector3(0.5, 1.2, 0), Vector3.FORWARD, 100.0, feet, 1.8, 0.4)
-	_check(d < 0.0, "cápsula: tiro ao lado erra")
-	# Acima da cabeça: erra.
-	d = CombatMath.ray_capsule_distance(Vector3(0, 2.3, 0), Vector3.FORWARD, 100.0, feet, 1.8, 0.4)
-	_check(d < 0.0, "cápsula: tiro por cima erra")
-	# Na cabeça (1,7 m): acerta e conta como headshot com a razão 0,8.
-	d = CombatMath.ray_capsule_distance(Vector3(0, 1.7, 0), Vector3.FORWARD, 100.0, feet, 1.8, 0.4)
-	_check(d > 0.0 and 1.7 >= 1.8 * 0.8, "cápsula: tiro na cabeça acerta")
-	# Parede antes do alvo: max_distance curto não alcança.
-	d = CombatMath.ray_capsule_distance(Vector3(0, 1.2, 0), Vector3.FORWARD, 5.0, feet, 1.8, 0.4)
-	_check(d < 0.0, "cápsula: limite de distância respeitado")
+	var forward := Vector3.FORWARD
+	# De frente, cada altura cai na parte certa.
+	var hit := Hitboxes.ray_test(Vector3(0, 1.65, 0), forward, 100.0, feet, 0.0)
+	_check(hit.get("part") == Hitboxes.Part.HEAD and absf(hit["distance"] - 9.8) < 0.02, "hitbox: cabeça (%s)" % [hit])
+	_check(Hitboxes.ray_test(Vector3(0, 1.2, 0), forward, 100.0, feet, 0.0).get("part") == Hitboxes.Part.TORSO, "hitbox: tronco")
+	_check(Hitboxes.ray_test(Vector3(0, 0.5, 0), forward, 100.0, feet, 0.0).get("part") == Hitboxes.Part.LEGS, "hitbox: pernas")
+	_check(Hitboxes.ray_test(Vector3(0, 1.9, 0), forward, 100.0, feet, 0.0).is_empty(), "hitbox: por cima da cabeça erra")
+	# Ao lado do tronco: a cápsula antiga (raio 0,4) contava; o boneco tem 0,62 de largura.
+	_check(Hitboxes.ray_test(Vector3(0.4, 1.2, 0), forward, 100.0, feet, 0.0).is_empty(), "hitbox: 40 cm ao lado do tronco erra")
+	_check(Hitboxes.ray_test(Vector3(0.3, 1.2, 0), forward, 100.0, feet, 0.0).get("part") == Hitboxes.Part.TORSO, "hitbox: borda do tronco acerta")
+	# Ombro alto não é cabeça (antes só a altura decidia).
+	_check(Hitboxes.ray_test(Vector3(0.28, 1.45, 0), forward, 100.0, feet, 0.0).get("part") == Hitboxes.Part.TORSO, "hitbox: ombro alto conta como tronco")
+	# De lado, 30 cm à frente do centro: o tronco tem 21 cm de meia-profundidade...
+	var side_origin := Vector3(5, 1.2, -9.7)
+	_check(Hitboxes.ray_test(side_origin, Vector3.LEFT, 100.0, feet, 0.0).is_empty(), "hitbox: de lado o tronco é estreito")
+	# ...mas virado 90° a largura (33 cm) fica nesse eixo.
+	_check(Hitboxes.ray_test(side_origin, Vector3.LEFT, 100.0, feet, PI * 0.5).get("part") == Hitboxes.Part.TORSO, "hitbox: gira com o jogador")
+	# Agachado (1,2 m): a cabeça desce.
+	_check(Hitboxes.ray_test(Vector3(0, 1.65, 0), forward, 100.0, feet, 0.0, 1.2).is_empty(), "hitbox: agachado, a altura da cabeça em pé erra")
+	_check(Hitboxes.ray_test(Vector3(0, 1.1, 0), forward, 100.0, feet, 0.0, 1.2).get("part") == Hitboxes.Part.HEAD, "hitbox: agachado, cabeça mais baixa")
+	# Faca: caixas maiores.
+	_check(Hitboxes.ray_test(Vector3(0.55, 1.2, 0), forward, 100.0, feet, 0.0, 1.8, 0.3).get("part") == Hitboxes.Part.TORSO, "hitbox: golpe de faca é mais largo")
+	# Alcance e parede: além do limite não conta.
+	_check(Hitboxes.ray_test(Vector3(0, 1.2, 0), forward, 9.0, feet, 0.0).is_empty(), "hitbox: limite de distância (parede antes)")
+	# De cima para baixo, a primeira parte é a cabeça.
+	_check(Hitboxes.ray_test(Vector3(0, 3, -10), Vector3.DOWN, 100.0, feet, 0.0).get("part") == Hitboxes.Part.HEAD, "hitbox: a parte mais perto vence")
+	# Raio começando dentro da caixa: distância 0.
+	_check(Hitboxes.ray_box_distance(Vector3.ZERO, forward, 10.0, Vector3.ZERO, Vector3.ONE, 0.0) == 0.0, "hitbox: começando dentro")
+	# Raio paralelo fora da caixa: erra.
+	_check(Hitboxes.ray_box_distance(Vector3(0, 2, 0), forward, 10.0, Vector3(0, 0, -5), Vector3.ONE, 0.0) < 0.0, "hitbox: paralelo por fora erra")
 
 
 func _test_spread() -> void:
@@ -71,6 +88,9 @@ func _test_history() -> void:
 	_check(CombatMath.sample_history(history, 900, Vector3.ZERO) == Vector3.ZERO, "histórico antes do início")
 	_check(CombatMath.sample_history(history, 5000, Vector3.ZERO) == Vector3(10, 0, 10), "histórico depois do fim")
 	_check(CombatMath.sample_history([], 1000, Vector3.ONE) == Vector3.ONE, "histórico vazio usa o padrão")
+	var states := [[1000, Vector3.ZERO, 0.0, false], [1100, Vector3.ONE, 1.5, true]]
+	_check(CombatMath.history_entry_at(states, 1050)[3] == false and CombatMath.history_entry_at(states, 1100)[3] == true, "histórico: agachado no instante certo")
+	_check(CombatMath.history_entry_at(states, 500) == states[0] and CombatMath.history_entry_at([], 5).is_empty(), "histórico: antes do início e vazio")
 
 
 func _test_announcement() -> void:
@@ -100,19 +120,22 @@ func _test_rules() -> void:
 		ids[item.id] = true
 		_check(item.price >= 0 and item.unlock_level >= 1, "preço e nível válidos: " + item.display_name)
 	for weapon in rules.weapons:
-		_check(weapon.magazine > 0 and weapon.fire_cooldown > 0.0 and weapon.pellets >= 1, "arma válida: " + weapon.display_name)
-		_check(weapon.sound in _sfx_names(), "som existe: " + weapon.display_name)
+		_check((weapon.magazine > 0 or weapon.melee) and weapon.fire_cooldown > 0.0 and weapon.pellets >= 1, "arma válida: " + weapon.display_name)
+		for variant in range(1, 4):
+			_check(ResourceLoader.exists("res://assets/sfx/%s_%d.wav" % [weapon.sound, variant]), "tiro %s variação %d existe" % [weapon.id, variant])
+		_check(weapon.kick_strength() >= 0.6 and weapon.kick_strength() <= 2.4, "força do recuo visual: " + weapon.id)
 	for id in [rules.default_primary, rules.default_secondary]:
 		var weapon := rules.weapon_by_id(id)
 		_check(weapon != null and weapon.is_free(), "arma inicial gratuita: " + id)
 	_check(rules.weapon_by_id(rules.default_primary).slot == WeaponData.Slot.PRIMARY, "inicial principal na vaga certa")
 	_check(rules.weapon_by_id(rules.default_secondary).slot == WeaponData.Slot.SECONDARY, "inicial secundária na vaga certa")
 	_check(rules.sprint_speed > rules.walk_speed and rules.walk_speed > rules.crouch_speed, "velocidades em ordem")
-
-
-## Nomes que o autoload Sfx carrega (aqui não há autoloads).
-func _sfx_names() -> Array:
-	return Array(load("res://scripts/sfx.gd").ALL)
+	var sounds := {}
+	for weapon in rules.weapons:
+		sounds[weapon.sound] = true
+	_check(sounds.size() == rules.weapons.size(), "cada arma tem o próprio som de tiro")
+	for sound in load("res://scripts/sfx.gd").ALL:
+		_check(ResourceLoader.exists("res://assets/sfx/%s.wav" % sound), "som existe: " + sound)
 
 
 func _test_upgrades() -> void:
@@ -339,4 +362,63 @@ func _test_habits_save() -> void:
 
 	habits.new_match()
 	_check(habits.shots[0] < 20.0, "hábitos: partida nova pesa menos o passado")
+
+
+func _test_weapon_models() -> void:
+	var rules := load("res://data/game_rules.tres") as GameRules
+	for weapon in rules.weapons:
+		_check(WeaponModels.has_model(weapon.id), "arma com modelo: " + weapon.id)
+		var mesh := WeaponModels.mesh(weapon.id)
+		_check(mesh.get_surface_count() >= 2, "modelo com mais de um material: " + weapon.id)
+		_check(WeaponModels.mesh(weapon.id) == mesh, "modelo criado uma vez só: " + weapon.id)
+		var box := mesh.get_aabb()
+		var length := box.size.z
+		_check(length > 0.15 and length < 1.3, "comprimento plausível de %s (%.2f m)" % [weapon.id, length])
+		_check(box.size.x < 0.15, "modelo estreito: %s (%.2f m)" % [weapon.id, box.size.x])
+		var offset := WeaponModels.hold_offset(weapon.id)
+		# De volta ao espaço do modelo (sem a pose da mão).
+		var muzzle := WeaponModels.hold_transform(weapon.id).affine_inverse() * WeaponModels.muzzle(weapon.id)
+		# A boca do cano fica na ponta da frente (até 3 cm além da última peça).
+		_check(muzzle.z <= box.position.z + 0.03 and muzzle.z >= box.position.z - 0.03, "boca do cano na ponta: %s (%.3f x %.3f)" % [weapon.id, muzzle.z, box.position.z])
+		_check(box.end.z + offset.z <= WeaponModels.MAX_BACK + 0.001 and offset.z <= 0.0, "coronha longe da câmera: %s" % weapon.id)
+		var triangles := 0
+		for surface in mesh.get_surface_count():
+			triangles += (mesh.surface_get_arrays(surface)[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3
+		_check(triangles < 1500, "low poly: %s com %d triângulos" % [weapon.id, triangles])
+	# Armas parecidas não podem sair iguais.
+	var lengths := {}
+	for weapon in rules.weapons:
+		lengths[snappedf(WeaponModels.mesh(weapon.id).get_aabb().size.z, 0.01)] = true
+	_check(lengths.size() == rules.weapons.size(), "cada arma tem um tamanho próprio")
+	# Pistola < submetralhadora < rifle de precisão.
+	_check(WeaponModels.mesh("pistol").get_aabb().size.z < WeaponModels.mesh("smg").get_aabb().size.z \
+		and WeaponModels.mesh("smg").get_aabb().size.z < WeaponModels.mesh("sniper").get_aabb().size.z, "proporções entre as armas")
+
+
+func _test_knife() -> void:
+	var rules := load("res://data/game_rules.tres") as GameRules
+	var knife := rules.weapon_by_id(rules.default_melee)
+	_check(knife != null and knife.melee and knife.slot == WeaponData.Slot.MELEE, "faca existe e é arma branca")
+	_check(knife.is_free() and knife.magazine == 0, "faca grátis e sem munição")
+	_check(knife.max_range < 3.0, "faca só acerta de perto")
+	_check(knife.backstab_damage >= rules.max_health + 50, "pelas costas mata até de colete pesado")
+	for weapon in rules.weapons:
+		if not weapon.melee:
+			_check(knife.move_speed_multiplier > weapon.move_speed_multiplier, "faca mais rápida que: " + weapon.id)
+	_check(rules.weapons_for_slot(WeaponData.Slot.PRIMARY).all(func(w: WeaponData) -> bool: return not w.melee) \
+		and rules.weapons_for_slot(WeaponData.Slot.SECONDARY).all(func(w: WeaponData) -> bool: return not w.melee), "faca fora do Arsenal")
+	var clean := rules.sanitize_loadout({"primary": "knife", "secondary": "knife"})
+	_check(clean["primary"] == rules.default_primary and clean["secondary"] == rules.default_secondary, "faca não entra nas vagas de arma de fogo")
+	_check(not knife.stats_text().is_empty() and "costas" in knife.stats_text(), "Arsenal descreve a faca")
+
+	# Pelas costas: vítima em (0,0,0) olhando para -Z (yaw 0).
+	var victim := Vector3.ZERO
+	_check(CombatMath.is_backstab(Vector3(0, 0, 2), victim, 0.0), "atacante atrás da vítima: pelas costas")
+	_check(not CombatMath.is_backstab(Vector3(0, 0, -2), victim, 0.0), "atacante na frente: golpe normal")
+	_check(not CombatMath.is_backstab(Vector3(2, 0, 0), victim, 0.0), "atacante do lado: golpe normal")
+	_check(CombatMath.is_backstab(Vector3(1, 0, 2), victim, 0.0), "atrás e um pouco de lado: pelas costas")
+	# Yaw 90°: a vítima olha para -X, então as costas ficam para +X.
+	_check(CombatMath.is_backstab(Vector3(2, 0, 0), victim, PI * 0.5), "vítima virada (yaw 90°): atacante em +X pega as costas")
+	_check(not CombatMath.is_backstab(Vector3(-2, 0, 0), victim, PI * 0.5), "vítima virada (yaw 90°): atacante em -X está na frente")
+	_check(not CombatMath.is_backstab(victim, victim, 0.0), "mesma posição não conta")
 

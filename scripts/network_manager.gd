@@ -1,5 +1,6 @@
 extends Node
-## Autoload "NetworkManager": cria/encerra a sessão ENet, confere a versão de
+## Autoload "NetworkManager": cria/encerra a sessão (ENet na LAN, ou local e
+## sem rede no Treino adaptativo), confere a versão de
 ## quem entra, guarda apelidos, equipamentos e o placar autoritativo do
 ## servidor, controla a partida (tempo, fim, reinício), os bots, os prêmios
 ## em moedas/XP, o aprendizado dos bots de treino (HabitTracker) e o anúncio
@@ -13,6 +14,8 @@ signal player_joined(peer_id: int)
 signal player_left(peer_id: int)
 signal scores_changed
 signal hit_confirmed(killed: bool)
+## Para quem atirou: quanto dano causou e onde (cabeça do inimigo).
+signal damage_dealt(amount: int, at: Vector3, headshot: bool, killed: bool)
 signal kill_announced(killer_id: int, victim_id: int)
 ## Partida começou/recomeçou ou o tempo foi ressincronizado.
 signal match_state_changed
@@ -54,6 +57,9 @@ var match_running: bool = false
 var match_end_msec: int = 0
 var discovery: LanDiscovery
 var habits: HabitTracker
+## Treino adaptativo: sessão só neste aparelho (OfflineMultiplayerPeer), sem
+## porta aberta, sem anúncio na LAN e sem outros jogadores.
+var solo: bool = false
 
 var _spawn_index: int = 0
 var _ready_peers: Dictionary = {}
@@ -82,6 +88,8 @@ func _process(delta: float) -> void:
 		return
 	if match_running and Time.get_ticks_msec() >= match_end_msec:
 		_end_match()
+	if solo:
+		return
 	_ping_timer -= delta
 	if _ping_timer <= 0.0:
 		_ping_timer = PING_INTERVAL
@@ -109,13 +117,50 @@ static func clean_nickname(text: String) -> String:
 	return nickname if not nickname.is_empty() else "Jogador"
 
 
+## Partida na LAN. O treino não passa por aqui: pedir o mapa de treino
+## redireciona para start_training (sessão local).
 func host_game(port: int = DEFAULT_PORT, map_index: int = 0, bot_count: int = 0) -> Error:
+	if get_mode(clampi(map_index, 0, MAPS.size() - 1)) == "training":
+		return start_training(bot_count)
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(port, MAX_CLIENTS)
 	if err != OK:
 		status_changed.emit("Erro ao criar servidor na porta %d (código %d)." % [port, err])
 		return err
 	multiplayer.multiplayer_peer = peer
+	solo = false
+	_begin_session(map_index, bot_count)
+	var lan_ip := get_lan_ip()
+	if lan_ip.is_empty():
+		status_changed.emit("Hospedando na porta %d" % port)
+	else:
+		status_changed.emit("Hospedando em %s, porta %d" % [lan_ip, port])
+	discovery.start_advertising({
+		"port": port, "host": names[1], "map": get_map_name(),
+		"players": scores.size(), "version": get_version()})
+	_launch_match()
+	return OK
+
+
+## Treino adaptativo: só você e os bots, sem rede.
+func start_training(bot_count: int = MIN_TRAINING_BOTS + 1) -> Error:
+	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	solo = true
+	_begin_session(training_map_index(), maxi(bot_count, MIN_TRAINING_BOTS))
+	status_changed.emit("Treino adaptativo")
+	_launch_match()
+	return OK
+
+
+func training_map_index() -> int:
+	for i in MAPS.size():
+		if MAPS[i]["mode"] == "training":
+			return i
+	return 0
+
+
+## Zera placar, nomes e equipamentos e cria os bots (comum à LAN e ao treino).
+func _begin_session(map_index: int, bot_count: int) -> void:
 	scores = {1: 0}
 	deaths = {1: 0}
 	names = {1: clean_nickname(Settings.nickname)}
@@ -126,8 +171,6 @@ func host_game(port: int = DEFAULT_PORT, map_index: int = 0, bot_count: int = 0)
 	current_map = clampi(map_index, 0, MAPS.size() - 1)
 	habits.reset_session()
 	var training := get_mode() == "training"
-	if training:
-		bot_count = maxi(bot_count, MIN_TRAINING_BOTS)
 	for i in clampi(bot_count, 0, MAX_BOTS):
 		var bot_id := BOT_ID_MIN + i
 		scores[bot_id] = 0
@@ -139,18 +182,11 @@ func host_game(port: int = DEFAULT_PORT, map_index: int = 0, bot_count: int = 0)
 		pings[bot_id] = 0
 		loadouts[bot_id] = RULES.random_loadout(_rng)
 
-	var lan_ip := get_lan_ip()
-	if lan_ip.is_empty():
-		status_changed.emit("Hospedando na porta %d" % port)
-	else:
-		status_changed.emit("Hospedando em %s, porta %d" % [lan_ip, port])
-	discovery.start_advertising({
-		"port": port, "host": names[1], "map": get_map_name(),
-		"players": scores.size(), "version": get_version()})
+
+func _launch_match() -> void:
 	map_changed.emit(current_map)
 	game_started.emit()
 	_start_match()
-	return OK
 
 
 func join_game(ip: String, port: int = DEFAULT_PORT) -> Error:
@@ -167,6 +203,7 @@ func join_game(ip: String, port: int = DEFAULT_PORT) -> Error:
 
 func leave_game(reason: String = "Desconectado.") -> void:
 	discovery.stop_advertising()
+	solo = false
 	if multiplayer.multiplayer_peer != null:
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
@@ -186,6 +223,8 @@ func leave_game(reason: String = "Desconectado.") -> void:
 
 
 func is_online() -> bool:
+	if solo:
+		return true
 	var peer := multiplayer.multiplayer_peer
 	return peer != null \
 		and not (peer is OfflineMultiplayerPeer) \
@@ -195,6 +234,8 @@ func is_online() -> bool:
 func get_role_text() -> String:
 	if not is_online():
 		return "Desconectado"
+	if solo:
+		return "Treino"
 	return "Host" if multiplayer.is_server() else "Cliente"
 
 
@@ -325,12 +366,13 @@ func register_kill(killer_id: int, victim_id: int, headshot: bool = false) -> vo
 		_end_match()
 
 
-## Avisa o atirador que o acerto foi validado (hitmarker no HUD dele).
-func confirm_hit(peer_id: int, killed: bool) -> void:
+## Avisa o atirador que o acerto foi validado (hitmarker no HUD dele) e,
+## quando há dano, quanto e onde (para o número sobre a cabeça do inimigo).
+func confirm_hit(peer_id: int, killed: bool, damage: int = 0, at: Vector3 = Vector3.ZERO, headshot: bool = false) -> void:
 	if not multiplayer.is_server():
 		return
 	if peer_id == 1 or multiplayer.get_peers().has(peer_id):
-		_notify_hit.rpc_id(peer_id, killed)
+		_notify_hit.rpc_id(peer_id, killed, damage, at, headshot)
 
 
 ## Só no servidor: alvo da arena derrubado.
@@ -437,8 +479,10 @@ func _grant(coins: int, xp: int, reason: String) -> void:
 
 
 @rpc("authority", "call_local", "reliable")
-func _notify_hit(killed: bool) -> void:
+func _notify_hit(killed: bool, damage: int, at: Vector3, headshot: bool) -> void:
 	hit_confirmed.emit(killed)
+	if damage > 0:
+		damage_dealt.emit(damage, at, headshot, killed)
 
 
 @rpc("authority", "call_local", "reliable")

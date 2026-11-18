@@ -13,7 +13,8 @@ extends Node3D
 const PLAYER_SCENE: PackedScene = preload("res://scenes/player.tscn")
 
 var _in_game: bool = false
-var _loaded_map: int = -1
+## Cena carregada (treino e mata-mata usam a mesma: não recarrega à toa).
+var _loaded_path: String = ""
 var _autopilot: bool = false
 var _autopilot_time: float = 0.0
 
@@ -25,6 +26,7 @@ var _autopilot_time: float = 0.0
 @onready var settings_menu: SettingsMenu = $UI/SettingsMenu
 @onready var shop: ShopMenu = $UI/Shop
 @onready var habits_panel: HabitsPanel = $UI/HabitsPanel
+@onready var crosshair_editor: CrosshairEditor = $UI/CrosshairEditor
 @onready var fps_label: Label = %FpsLabel
 
 
@@ -32,6 +34,7 @@ func _ready() -> void:
 	menu.map_selected.connect(_load_map)
 	menu.settings_requested.connect(_open_settings)
 	menu.shop_requested.connect(_open_shop)
+	menu.training_requested.connect(_start_training)
 	shop.closed.connect(menu.show)
 	menu.habits_requested.connect(_open_habits)
 	habits_panel.closed.connect(menu.show)
@@ -39,6 +42,8 @@ func _ready() -> void:
 	hud.leave_requested.connect(_on_leave_pressed)
 	settings_menu.closed.connect(_on_settings_closed)
 	settings_menu.touch_layout_requested.connect(hud.touch_controls.start_editing)
+	# Abre por cima das Configurações; ao fechar, elas continuam abertas.
+	settings_menu.crosshair_requested.connect(crosshair_editor.open)
 	Settings.changed.connect(_on_settings_changed)
 	_on_settings_changed()
 	players.child_entered_tree.connect(_on_player_added)
@@ -63,7 +68,7 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not _in_game or settings_menu.visible or hud.touch_controls.editing:
+	if not _in_game or settings_menu.visible or crosshair_editor.visible or hud.touch_controls.editing:
 		return
 	if event.is_action_pressed("ui_cancel"):
 		_toggle_pause()
@@ -79,7 +84,9 @@ func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_WM_GO_BACK_REQUEST:
 			# Botão/gesto "voltar" do Android: fecha painel, pausa ou sai do app.
-			if settings_menu.visible:
+			if crosshair_editor.visible:
+				crosshair_editor.close()
+			elif settings_menu.visible:
 				settings_menu.close()
 			elif shop.visible:
 				shop.close()
@@ -103,20 +110,21 @@ func _toggle_pause() -> void:
 
 
 ## Troca o mapa mantendo o nome "Map" (os caminhos de RPC dos alvos dependem
-## dele; tests/smoke_test.sh confere). Não recarrega se já for o mesmo.
+## dele; tests/smoke_test.sh confere). Não recarrega se a cena já for a mesma.
 func _load_map(map_index: int) -> void:
 	menu.select_map(map_index)
-	if map_index == _loaded_map:
+	var path: String = NetworkManager.MAPS[map_index]["path"]
+	if path == _loaded_path:
 		return
 	for child in world.get_children():
 		world.remove_child(child)
 		child.queue_free()
-	var scene := load(NetworkManager.MAPS[map_index]["path"]) as PackedScene
+	var scene := load(path) as PackedScene
 	var map := scene.instantiate()
 	map.name = "Map"
 	world.add_child(map)
 	Settings.apply_quality_to(map)
-	_loaded_map = map_index
+	_loaded_path = path
 
 
 func _open_settings() -> void:
@@ -131,6 +139,11 @@ func _open_settings() -> void:
 func _open_shop() -> void:
 	menu.hide()
 	shop.open()
+
+
+func _start_training(bot_count: int) -> void:
+	_load_map(NetworkManager.training_map_index())
+	NetworkManager.start_training(bot_count)
 
 
 func _open_habits() -> void:
@@ -165,7 +178,10 @@ func _on_game_started() -> void:
 
 
 func _on_game_ended(reason: String) -> void:
+	# Fora da árvore já: uma partida nova no mesmo quadro cria o jogador "1"
+	# de novo (com queue_free sozinho o nome antigo ainda estaria ocupado).
 	for child in players.get_children():
+		players.remove_child(child)
 		child.queue_free()
 	hud.reset()
 	get_tree().call_group("targets", "reset_local")
@@ -174,6 +190,7 @@ func _on_game_ended(reason: String) -> void:
 
 func _show_menu(status: String) -> void:
 	_in_game = false
+	crosshair_editor.close()
 	settings_menu.close()
 	shop.close()
 	habits_panel.close()
