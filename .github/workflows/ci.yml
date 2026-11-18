@@ -1,5 +1,7 @@
-# Testes a cada push/PR; numa tag v* também exporta Windows e Android e
-# publica os arquivos numa Release.
+# Testes a cada push/PR. As Releases são publicadas a partir dos builds
+# locais (com placa de vídeo os shaders vão pré-compilados; aqui não há GPU).
+# Para o CI também exportar e publicar numa tag v*, crie a variável do
+# repositório CI_RELEASE = true (Settings > Variables) e os segredos abaixo.
 #
 # Segredos do repositório usados no export Android (Settings > Secrets):
 #   ANDROID_KEYSTORE_BASE64    base64 -w0 fps-arena-release.keystore
@@ -58,7 +60,7 @@ jobs:
         run: ./tests/smoke_test.sh
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') && vars.CI_RELEASE == 'true'
     needs: test
     runs-on: ubuntu-latest
     permissions:

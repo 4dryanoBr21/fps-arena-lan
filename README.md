@@ -113,6 +113,12 @@ Precisa do Godot 4.7.2 e dos templates de exportação.
 ./export_android.sh --install  # gera e instala no celular via adb
 ```
 
+Para publicar uma versão: gere os três builds, crie a tag `vX.Y.Z` e a Release com
+`builds/FPSArenaLAN-windows.zip`, `builds/FPSArenaLAN-linux.tar.gz` e
+`builds/android/FPSArenaLAN.apk` (`gh release create`). O CI só exporta e publica sozinho se a
+variável do repositório `CI_RELEASE` for `true` (e com os segredos da chave Android); os builds
+dele saem sem shaders pré-compilados, porque o runner não tem placa de vídeo.
+
 O build Android precisa do Android SDK (`~/Android/Sdk`) e de uma chave de assinatura
 (veja o cabeçalho de `export_android.sh`). Detalhes para jogadores em `LEIA-ME Windows.txt`,
 `LEIA-ME Linux.txt` e `LEIA-ME Android.txt`.
