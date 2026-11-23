@@ -68,6 +68,14 @@ const CAMERA_WALL_MARGIN: float = 0.2
 const AIM_ASSIST_ANGLE_DEG: float = 6.0
 const AIM_ASSIST_RANGE: float = 60.0
 const AIM_ASSIST_SLOWDOWN: float = 0.55
+## Distâncias (m) a partir das quais a barra de vida e a arma dos outros somem.
+const HEALTH_BAR_VISIBLE_RANGE: float = 45.0
+## Intervalo mínimo entre duas trocas de arma pela roda do mouse.
+const SCROLL_SWITCH_INTERVAL_MSEC: int = 90
+const REMOTE_WEAPON_VISIBLE_RANGE: float = 80.0
+
+## Fundo da barra de vida, igual para todos os jogadores.
+static var _bar_bg_mesh: QuadMesh
 
 ## Estado sincronizado, escrito por quem controla o corpo.
 var net_position: Vector3 = Vector3.ZERO: set = _set_net_position
@@ -121,6 +129,7 @@ var _sv_protected_until_msec: int = 0
 var _sv_history: Array = []
 ## PC: botão de tiro seguro desde um clique com o jogo ativo.
 var _mouse_fire_held: bool = false
+var _last_scroll_msec: int = -100000
 
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var visual: Node3D = $Visual
@@ -176,6 +185,8 @@ func _ready() -> void:
 		request_spawn.rpc_id(1)
 	else:
 		_build_health_bar()
+		# A arma na mão dos outros é um detalhe pequeno: some de muito longe.
+		_hide_when_far(weapon_model, REMOTE_WEAPON_VISIBLE_RANGE)
 	if is_bot and multiplayer.is_server():
 		_bot_brain = BotBrain.new()
 		add_child(_bot_brain)
@@ -239,6 +250,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event is InputEventMouseMotion:
 		_rotate_view((event as InputEventMouseMotion).relative, MOUSE_SENSITIVITY * Settings.mouse_sensitivity)
+	elif event is InputEventMouseButton and (event as InputEventMouseButton).pressed 			and (event as InputEventMouseButton).button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		_scroll_weapon(1 if (event as InputEventMouseButton).button_index == MOUSE_BUTTON_WHEEL_DOWN else -1)
+		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("shoot"):
 		_mouse_fire_held = true
 		_try_shoot()
@@ -292,6 +306,9 @@ func _process_touch(delta: float) -> void:
 		cycle_view()
 	if GameInput.consume_switch_weapon():
 		select_weapon((weapon_index + 1) % weapons.size())
+	var slot := GameInput.consume_weapon_slot()
+	if slot >= 0:
+		select_weapon(slot)
 	# Segurar o botão atira sem parar (o cooldown limita a cadência).
 	if GameInput.fire_held:
 		_try_shoot()
@@ -401,6 +418,8 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= gravity * RULES.gravity_scale * delta
 	if wants_jump and is_on_floor() and not _crouching:
 		velocity.y = RULES.jump_velocity
+		if is_local_player():
+			_animator.jump()
 
 	var speed := RULES.walk_speed
 	if _crouching:
@@ -525,6 +544,21 @@ func select_weapon(index: int) -> void:
 		_server_select_weapon.rpc_id(1, index)
 	weapon_changed.emit(weapon_data())
 	_emit_ammo()
+
+
+## Roda do mouse: para baixo = próxima arma, para cima = anterior (dá a volta).
+## Touchpad e roda sem "degraus" mandam vários eventos por gesto; um intervalo
+## mínimo evita pular duas armas de uma vez.
+static func scroll_weapon_index(current: int, step: int, count: int) -> int:
+	return posmod(current + step, count) if count > 0 else 0
+
+
+func _scroll_weapon(step: int) -> void:
+	var now := Time.get_ticks_msec()
+	if weapons.size() < 2 or now - _last_scroll_msec < SCROLL_SWITCH_INTERVAL_MSEC:
+		return
+	_last_scroll_msec = now
+	select_weapon(scroll_weapon_index(weapon_index, step, weapons.size()))
 
 
 func start_reload() -> void:
@@ -1139,12 +1173,15 @@ func _build_health_bar() -> void:
 	_health_bar.position = Vector3(0.0, 2.15, 0.0)
 	add_child(_health_bar)
 
-	var bg_mesh := QuadMesh.new()
-	bg_mesh.size = Vector2(BAR_WIDTH + 0.06, BAR_HEIGHT + 0.06)
-	bg_mesh.material = _make_bar_material(Color(0.05, 0.05, 0.07))
+	# Fundo igual para todos: malha e material compartilhados.
+	if _bar_bg_mesh == null:
+		_bar_bg_mesh = QuadMesh.new()
+		_bar_bg_mesh.size = Vector2(BAR_WIDTH + 0.06, BAR_HEIGHT + 0.06)
+		_bar_bg_mesh.material = _make_bar_material(Color(0.05, 0.05, 0.07))
 	var bg := MeshInstance3D.new()
-	bg.mesh = bg_mesh
+	bg.mesh = _bar_bg_mesh
 	bg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_hide_when_far(bg, HEALTH_BAR_VISIBLE_RANGE)
 	_health_bar.add_child(bg)
 
 	_bar_fill_mat = _make_bar_material(Color.GREEN)
@@ -1153,8 +1190,16 @@ func _build_health_bar() -> void:
 	_bar_fill = MeshInstance3D.new()
 	_bar_fill.mesh = _bar_fill_mesh
 	_bar_fill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_hide_when_far(_bar_fill, HEALTH_BAR_VISIBLE_RANGE)
 	_health_bar.add_child(_bar_fill)
 	_update_health_bar()
+
+
+## Distância de visibilidade (o "LOD" de um jogo low poly): detalhes pequenos
+## somem de longe, onde não dá para ler nem ver (com folga para não piscar).
+static func _hide_when_far(node: GeometryInstance3D, distance: float) -> void:
+	node.visibility_range_end = distance
+	node.visibility_range_end_margin = distance * 0.1
 
 
 func _make_bar_material(color: Color) -> StandardMaterial3D:

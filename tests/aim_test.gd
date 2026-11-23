@@ -6,6 +6,7 @@ extends Node3D
 ##    para o lado dela.
 ## 2. Terceira pessoa: o tiro sai do olho e vai até o ponto sob a mira.
 ##    Antes ele seguia a frente da cabeça e passava abaixo da mira de perto.
+## 3. Troca de arma pela roda do mouse e a curva seca da aterrissagem.
 ## Roda como cena (com os autoloads):
 ##   godot --headless --path . res://tests/aim_test.tscn
 
@@ -23,6 +24,7 @@ func _ready() -> void:
 	GameInput.touch = true
 	await _test_crosshair_with_notch()
 	await _test_third_person_aim()
+	_test_scroll_and_landing()
 	print("%d verificações, %d falha(s)" % [_checks, _failures])
 	get_tree().quit(1 if _failures > 0 else 0)
 
@@ -79,6 +81,25 @@ func _test_third_person_aim() -> void:
 	_check(old_point.distance_to(under_crosshair) > 0.1,
 		"cenário mostra o erro antigo (%.3f m)" % old_point.distance_to(under_crosshair))
 	FPSPlayer.view_mode = FPSPlayer.ViewMode.FIRST
+
+
+func _test_scroll_and_landing() -> void:
+	_check(FPSPlayer.scroll_weapon_index(0, 1, 3) == 1, "roda para baixo: próxima arma")
+	_check(FPSPlayer.scroll_weapon_index(2, 1, 3) == 0, "roda para baixo na última volta à primeira")
+	_check(FPSPlayer.scroll_weapon_index(0, -1, 3) == 2, "roda para cima na primeira vai à última")
+	# Aterrissagem seca: chega ao fundo rápido e volta sem passar do zero.
+	var hit := WeaponAnimator.LAND_HIT
+	_check(is_zero_approx(WeaponAnimator.land_curve(0.0)) and is_zero_approx(WeaponAnimator.land_curve(1.0)),
+		"aterrissagem começa e termina no zero")
+	_check(is_equal_approx(WeaponAnimator.land_curve(hit), 1.0), "aterrissagem chega ao fundo em LAND_HIT")
+	_check(hit * WeaponAnimator.LAND_TIME < 0.05, "fundo da aterrissagem em menos de 50 ms")
+	var monotonic := true
+	var last := 1.0
+	for i in range(1, 20):
+		var value := WeaponAnimator.land_curve(hit + (1.0 - hit) * i / 20.0)
+		monotonic = monotonic and value <= last and value >= 0.0
+		last = value
+	_check(monotonic, "aterrissagem volta sem tremer")
 
 
 func _ray(from: Vector3, direction: Vector3) -> Vector3:

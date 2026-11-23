@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Teste de fumaça de rede, sem janela: sobe um host com 2 bots no mata-mata e
-# um cliente que entra pela rede local; confere que o cliente conectou, que o
+# um cliente ENet e um WebSocket (navegador) que entram pela rede local; confere que o cliente conectou, que o
 # mapa está no caminho que os RPCs esperam (World/Map), que o equipamento do
 # Arsenal do cliente chegou ao host e que houve combate.
 set -euo pipefail
@@ -12,11 +12,15 @@ trap 'rm -rf "$LOGS"' EXIT
 "$GODOT" --headless --path . -- --host --bots=2 --map=1 --name=Host --quit-after=30 > "$LOGS/host.log" 2>&1 &
 HOST_PID=$!
 sleep 4
+# Um cliente ENet (PC/celular) e um WebSocket (como a versão de navegador) na mesma partida.
+"$GODOT" --headless --path . -- --join=127.0.0.1 --ws --name=Web --quit-after=22 > "$LOGS/web.log" 2>&1 &
+WEB_PID=$!
 "$GODOT" --headless --path . -- --join=127.0.0.1 --name=Cliente --loadout=smg,revolver,heavy_vest --quit-after=22 > "$LOGS/client.log" 2>&1
+wait "$WEB_PID" || true
 wait "$HOST_PID" || true
 
-fail() { echo "FALHOU: $1"; echo "--- host"; cat "$LOGS/host.log"; echo "--- cliente"; cat "$LOGS/client.log"; exit 1; }
-grep -q "SCRIPT ERROR" "$LOGS/host.log" "$LOGS/client.log" && fail "erro de script"
+fail() { echo "FALHOU: $1"; echo "--- host"; cat "$LOGS/host.log"; echo "--- cliente"; cat "$LOGS/client.log"; echo "--- web"; cat "$LOGS/web.log"; exit 1; }
+grep -q "SCRIPT ERROR" "$LOGS/host.log" "$LOGS/client.log" "$LOGS/web.log" && fail "erro de script"
 grep -q "LOCAL_PLAYER_SPAWNED" "$LOGS/client.log" || fail "jogador do cliente não apareceu"
 grep -q "RESULT online=true role=Cliente map_ok=true" "$LOGS/client.log" || fail "cliente não terminou conectado com o mapa em World/Map"
 grep -q "Cliente:" "$LOGS/client.log" || fail "apelido do cliente não chegou ao placar"
@@ -25,7 +29,12 @@ grep -q "Cliente:" "$LOGS/client.log" || fail "apelido do cliente não chegou ao
 grep -q "Cliente=smg+revolver+heavy_vest" "$LOGS/client.log" || fail "equipamento do cliente não voltou do servidor"
 DEATHS=$(grep -o "deaths=[0-9]*" "$LOGS/client.log" | head -1 | cut -d= -f2)
 [[ "${DEATHS:-0}" -gt 0 ]] || fail "nenhuma morte em 20 s (bots não lutaram?)"
-echo "OK: cliente conectou, mapa em World/Map, $DEATHS morte(s) registradas."
+grep -q "RESULT online=true role=Cliente map_ok=true" "$LOGS/web.log" || fail "cliente WebSocket não terminou conectado"
+# SEEN: todo mundo que apareceu no placar durante a partida (os dois clientes
+# saem quase juntos, então o placar final de um pode não ter mais o outro).
+grep "^SEEN" "$LOGS/client.log" | grep -q "Web" || fail "cliente ENet não viu o jogador WebSocket no placar"
+grep "^SEEN" "$LOGS/web.log" | grep -q "Cliente" || fail "cliente WebSocket não viu o jogador ENet no placar"
+echo "OK: clientes ENet e WebSocket conectaram, mapa em World/Map, $DEATHS morte(s) registradas."
 grep -h "SCORES\|LOADOUTS" "$LOGS/client.log"
 
 # Treino adaptativo: o host, no piloto automático, desvia mais para a direita

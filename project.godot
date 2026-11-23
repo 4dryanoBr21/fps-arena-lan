@@ -27,6 +27,7 @@ config/windows_native_icon="res://assets/icon.ico"
 
 GameInput="*res://scripts/game_input.gd"
 Settings="*res://scripts/settings.gd"
+UiScale="*res://scripts/ui_scale.gd"
 Progress="*res://scripts/progress.gd"
 Habits="*res://scripts/habits.gd"
 Sfx="*res://scripts/sfx.gd"
@@ -130,3 +131,4 @@ sensors/enable_gyroscope=true
 [rendering]
 
 textures/vram_compression/import_etc2_astc=true
+occlusion_culling/use_occlusion_culling=true

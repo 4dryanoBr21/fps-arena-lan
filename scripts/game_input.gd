@@ -4,8 +4,9 @@ extends Node
 ## (controles de toque) quando não está pausado. Os controles de toque
 ## escrevem aqui o movimento, a mira e o tiro; o player só lê.
 
-## Celular, ou PC iniciado com "-- --touch" (para testar os controles de toque).
-var touch: bool = OS.has_feature("mobile") or OS.get_cmdline_user_args().has("--touch")
+## Celular (app ou navegador do celular), ou PC iniciado com "-- --touch"
+## (para testar os controles de toque).
+var touch: bool = is_phone() or OS.get_cmdline_user_args().has("--touch")
 
 ## Joystick esquerdo, -1..1 em cada eixo (y negativo = frente).
 var move: Vector2 = Vector2.ZERO
@@ -18,15 +19,16 @@ var switch_weapon_pressed: bool = false
 var scoreboard_held: bool = false
 ## Trocar a câmera (primeira / terceira pessoa); vale uma vez por toque.
 var view_pressed: bool = false
+## Vaga da barra de armas tocada (-1 = nenhuma); vale uma vez.
+var weapon_slot_pressed: int = -1
 
 var _paused: bool = true
 var _look_delta: Vector2 = Vector2.ZERO
 
 
-func _ready() -> void:
-	if touch:
-		# Botões e textos maiores para o dedo.
-		get_tree().root.content_scale_factor = 1.3
+## App de celular ou o jogo aberto no navegador de um celular/tablet.
+static func is_phone() -> bool:
+	return OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
 
 
 func is_active() -> bool:
@@ -82,6 +84,12 @@ func consume_view() -> bool:
 	return pressed
 
 
+func consume_weapon_slot() -> int:
+	var slot := weapon_slot_pressed
+	weapon_slot_pressed = -1
+	return slot
+
+
 func consume_switch_weapon() -> bool:
 	var pressed := switch_weapon_pressed
 	switch_weapon_pressed = false
@@ -90,7 +98,7 @@ func consume_switch_weapon() -> bool:
 
 ## Vibração curta no celular (respeita a opção das Configurações).
 func vibrate(duration_ms: int) -> void:
-	if OS.has_feature("mobile") and Settings.vibration:
+	if is_phone() and Settings.vibration:
 		Input.vibrate_handheld(duration_ms)
 
 
@@ -102,4 +110,5 @@ func reset_touch_state() -> void:
 	switch_weapon_pressed = false
 	scoreboard_held = false
 	view_pressed = false
+	weapon_slot_pressed = -1
 	_look_delta = Vector2.ZERO

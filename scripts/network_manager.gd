@@ -1,6 +1,6 @@
 extends Node
-## Autoload "NetworkManager": cria/encerra a sessão (ENet na LAN, ou local e
-## sem rede no Treino adaptativo), confere a versão de
+## Autoload "NetworkManager": cria/encerra a sessão (ENet na LAN + WebSocket
+## para a versão de navegador, ou local e sem rede no Treino adaptativo), confere a versão de
 ## quem entra, guarda apelidos, equipamentos e o placar autoritativo do
 ## servidor, controla a partida (tempo, fim, reinício), os bots, os prêmios
 ## em moedas/XP, o aprendizado dos bots de treino (HabitTracker) e o anúncio
@@ -26,6 +26,9 @@ signal match_restarted
 signal training_feedback(text: String)
 
 const DEFAULT_PORT: int = 7777
+## Jogadores do navegador entram por WebSocket na porta do jogo + isto (7779;
+## a 7778 é a busca de partidas). Quem digita a porta continua digitando 7777.
+const WEB_PORT_OFFSET: int = 2
 const MAX_CLIENTS: int = 8
 const MAX_BOTS: int = 6
 ## Treino adaptativo sem bots não faz sentido: cria pelo menos estes.
@@ -67,6 +70,8 @@ var _ping_timer: float = 0.0
 var _reject_reason: String = ""
 var _rng := RandomNumberGenerator.new()
 var _default_loadout: Dictionary = RULES.sanitize_loadout({})
+## Servidor: ping (ms) dos jogadores do navegador, medido por _ping_web/_pong_web.
+var _web_rtt: Dictionary = {}
 
 
 func _ready() -> void:
@@ -93,10 +98,22 @@ func _process(delta: float) -> void:
 	_ping_timer -= delta
 	if _ping_timer <= 0.0:
 		_ping_timer = PING_INTERVAL
+		var dual := multiplayer.multiplayer_peer as DualServerPeer
 		for peer_id in multiplayer.get_peers():
 			pings[peer_id] = get_peer_rtt(peer_id)
+			if dual != null and dual.is_web_peer(peer_id):
+				_ping_web.rpc_id(peer_id, Time.get_ticks_msec())
 		_broadcast_scores()
 		discovery.update_info({"players": scores.size(), "map": get_map_name()})
+
+
+## Versão de navegador (sem UDP: entra por WebSocket e não hospeda).
+static func is_web() -> bool:
+	return OS.has_feature("web")
+
+
+static func web_port(port: int) -> int:
+	return port + WEB_PORT_OFFSET
 
 
 static func get_version() -> String:
@@ -122,8 +139,11 @@ static func clean_nickname(text: String) -> String:
 func host_game(port: int = DEFAULT_PORT, map_index: int = 0, bot_count: int = 0) -> Error:
 	if get_mode(clampi(map_index, 0, MAPS.size() - 1)) == "training":
 		return start_training(bot_count)
-	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_server(port, MAX_CLIENTS)
+	if is_web():
+		status_changed.emit("O navegador não consegue hospedar partidas. Entre na de um PC ou celular, ou jogue o Treino.")
+		return ERR_UNAVAILABLE
+	var peer := DualServerPeer.new()
+	var err := peer.create(port, web_port(port), MAX_CLIENTS)
 	if err != OK:
 		status_changed.emit("Erro ao criar servidor na porta %d (código %d)." % [port, err])
 		return err
@@ -131,10 +151,11 @@ func host_game(port: int = DEFAULT_PORT, map_index: int = 0, bot_count: int = 0)
 	solo = false
 	_begin_session(map_index, bot_count)
 	var lan_ip := get_lan_ip()
-	if lan_ip.is_empty():
-		status_changed.emit("Hospedando na porta %d" % port)
+	var where := "porta %d" % port if lan_ip.is_empty() else "%s, porta %d" % [lan_ip, port]
+	if peer.accepts_web():
+		status_changed.emit("Hospedando em %s (navegador também)" % where)
 	else:
-		status_changed.emit("Hospedando em %s, porta %d" % [lan_ip, port])
+		status_changed.emit("Hospedando em %s (navegador indisponível: porta %d ocupada)" % [where, web_port(port)])
 	discovery.start_advertising({
 		"port": port, "host": names[1], "map": get_map_name(),
 		"players": scores.size(), "version": get_version()})
@@ -189,9 +210,18 @@ func _launch_match() -> void:
 	_start_match()
 
 
-func join_game(ip: String, port: int = DEFAULT_PORT) -> Error:
-	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_client(ip, port)
+## No navegador (ou com `use_websocket`) entra por WebSocket; senão por ENet.
+func join_game(ip: String, port: int = DEFAULT_PORT, use_websocket: bool = is_web()) -> Error:
+	var peer: MultiplayerPeer
+	var err: Error
+	if use_websocket:
+		var ws := WebSocketMultiplayerPeer.new()
+		err = ws.create_client("ws://%s:%d" % [ip, web_port(port)])
+		peer = ws
+	else:
+		var enet := ENetMultiplayerPeer.new()
+		err = enet.create_client(ip, port)
+		peer = enet
 	if err != OK:
 		status_changed.emit("Erro ao conectar em %s:%d (código %d)." % [ip, port, err])
 		return err
@@ -290,10 +320,16 @@ func standings_text() -> String:
 	return "\n".join(lines)
 
 
-## Ida e volta (ms) até um peer; 0 se não houver conexão ENet com ele.
+## Ida e volta (ms) até um peer; 0 se não houver conexão ENet com ele (bots;
+## no navegador vem do ping próprio, ver _ping_web).
 func get_peer_rtt(peer_id: int) -> int:
-	var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
-	if enet == null or not multiplayer.is_server():
+	if not multiplayer.is_server():
+		return 0
+	var dual := multiplayer.multiplayer_peer as DualServerPeer
+	if dual != null and dual.is_web_peer(peer_id):
+		return int(_web_rtt.get(peer_id, 0))
+	var enet := dual.enet() if dual != null else multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if enet == null:
 		return 0
 	var packet_peer := enet.get_peer(peer_id)
 	if packet_peer == null:
@@ -501,10 +537,23 @@ func _hello(version: String, nickname: String) -> void:
 		# Dá tempo da mensagem chegar antes de derrubar a conexão.
 		get_tree().create_timer(0.5).timeout.connect(func() -> void:
 			if is_online() and multiplayer.get_peers().has(peer_id):
-				(multiplayer.multiplayer_peer as ENetMultiplayerPeer).disconnect_peer(peer_id))
+				multiplayer.multiplayer_peer.disconnect_peer(peer_id))
 		return
 	names[peer_id] = clean_nickname(nickname)
 	_receive_map.rpc_id(peer_id, current_map, time_left(), match_running)
+
+
+## Servidor -> jogador do navegador: o WebSocket não mede ping, então o
+## servidor manda a hora dele e o cliente devolve.
+@rpc("authority", "call_remote", "reliable")
+func _ping_web(server_msec: int) -> void:
+	_pong_web.rpc_id(1, server_msec)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pong_web(server_msec: int) -> void:
+	if multiplayer.is_server():
+		_web_rtt[multiplayer.get_remote_sender_id()] = maxi(Time.get_ticks_msec() - server_msec, 0)
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -553,6 +602,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	names.erase(peer_id)
 	pings.erase(peer_id)
 	loadouts.erase(peer_id)
+	_web_rtt.erase(peer_id)
 	habits.forget(peer_id)
 	_ready_peers.erase(peer_id)
 	_broadcast_scores()

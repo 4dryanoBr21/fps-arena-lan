@@ -19,7 +19,7 @@ const BUTTONS := {
 	"jump": [Vector2(1, 1), Vector2(-290, -95), 46.0],
 	"crouch": [Vector2(1, 1), Vector2(-60, -85), 36.0],
 	"reload": [Vector2(1, 1), Vector2(-300, -235), 34.0],
-	"weapon": [Vector2(1, 1), Vector2(-70, -350), 32.0],
+	"weapon": [Vector2(1, 1), Vector2(-58, -285), 32.0],
 	"scoreboard": [Vector2(0.5, 0), Vector2(-80, 44), 26.0],
 	"pause": [Vector2(0.5, 0), Vector2(80, 44), 26.0],
 	"view": [Vector2(0.5, 0), Vector2(150, 44), 26.0],
@@ -27,6 +27,8 @@ const BUTTONS := {
 const EDIT_DONE_SIZE: Vector2 = Vector2(150, 48)
 
 var editing: bool = false
+## Devolve a vaga da barra de armas sob um ponto global (-1 = nenhuma); o HUD liga.
+var weapon_slot_at: Callable = func(_point: Vector2) -> int: return -1
 
 var _stick_finger: int = -1
 var _stick_origin: Vector2
@@ -60,6 +62,11 @@ func _input(event: InputEvent) -> void:
 		if editing:
 			_edit_touch(touch.index, pos, touch.pressed)
 		elif touch.pressed:
+			# Tocar numa vaga da barra de armas troca de arma (e não vira mira).
+			var slot: int = weapon_slot_at.call(get_global_transform() * pos)
+			if slot >= 0 and _button_at(pos).is_empty():
+				GameInput.weapon_slot_pressed = slot
+				return
 			_on_press(touch.index, pos)
 		else:
 			_on_release(touch.index)

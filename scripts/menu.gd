@@ -31,6 +31,8 @@ func _ready() -> void:
 			map_option.add_item(NetworkManager.MAPS[i]["name"], i)
 	bots_spin.max_value = NetworkManager.MAX_BOTS
 	name_edit.text = Settings.nickname
+	if NetworkManager.is_web():
+		_setup_web()
 	if GameInput.touch:
 		help_label.text = "Joystick à esquerda move (todo para a frente corre) · arraste à direita mira · botões para atirar, pular, agachar e recarregar"
 
@@ -53,6 +55,17 @@ func _ready() -> void:
 	_on_visibility_changed()
 
 
+## Navegador: não hospeda (sem UDP/servidor) e não acha partidas sozinho.
+## Se a página veio do PC do host (http://IP-do-host:porta), o IP já vem preenchido.
+func _setup_web() -> void:
+	host_button.text = "Criar partida: só no PC ou celular"
+	host_button.tooltip_text = "O navegador entra em partidas e joga o Treino, mas não hospeda."
+	bots_spin.editable = false
+	var page_host := str(JavaScriptBridge.eval("window.location.hostname", true))
+	if LanDiscovery.is_private_ipv4(page_host) or page_host == "localhost":
+		ip_edit.text = "127.0.0.1" if page_host == "localhost" else page_host
+
+
 ## Índice em NetworkManager.MAPS (a lista do menu não tem o treino).
 func selected_map() -> int:
 	return map_option.get_item_id(map_option.selected)
@@ -69,7 +82,7 @@ func set_status(text: String) -> void:
 
 
 func set_busy(busy: bool) -> void:
-	host_button.disabled = busy
+	host_button.disabled = busy or NetworkManager.is_web()
 	join_button.disabled = busy
 	%TrainingButton.disabled = busy
 	map_option.disabled = busy
@@ -135,7 +148,9 @@ func _refresh_servers() -> void:
 			child.queue_free()
 	var servers := NetworkManager.discovery.servers
 	no_servers.visible = servers.is_empty()
-	if not NetworkManager.discovery.is_listening():
+	if NetworkManager.is_web():
+		no_servers.text = "No navegador a busca automática não funciona. Digite o IP que aparece na tela do host."
+	elif not NetworkManager.discovery.is_listening():
 		no_servers.text = "Busca automática indisponível. Digite o IP do host abaixo."
 	else:
 		no_servers.text = "Procurando partidas na rede..."

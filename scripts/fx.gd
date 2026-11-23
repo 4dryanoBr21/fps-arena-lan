@@ -20,6 +20,7 @@ const NUMBER_HEADSHOT_COLOR := Color(1.0, 0.85, 0.25)
 const NUMBER_KILL_COLOR := Color(1.0, 0.3, 0.25)
 const TRACER_TIME: float = 0.12
 const IMPACT_TIME: float = 0.25
+const IMPACT_VISIBLE_RANGE: float = 80.0
 
 var _tracers: Array[MeshInstance3D] = []
 var _impacts: Array[MeshInstance3D] = []
@@ -46,7 +47,10 @@ func _ready() -> void:
 	for i in TRACER_POOL:
 		_tracers.append(_make_instance(tracer_mesh))
 	for i in IMPACT_POOL:
-		_impacts.append(_make_instance(impact_mesh))
+		var impact_node := _make_instance(impact_mesh)
+		# Faísca de 16 cm a mais de 80 m ocupa menos de um pixel.
+		impact_node.visibility_range_end = IMPACT_VISIBLE_RANGE
+		_impacts.append(impact_node)
 	var flash_mesh := QuadMesh.new()
 	flash_mesh.material = _make_flash_material()
 	for i in FLASH_POOL:

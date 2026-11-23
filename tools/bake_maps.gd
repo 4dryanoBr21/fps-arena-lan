@@ -1,7 +1,8 @@
 extends SceneTree
+const BakeOccluders = preload("res://tools/bake_occluders.gd")
 ## Converte os mapas de rascunho (CSG, em scenes/maps_src/) nos mapas do jogo:
 ## um MeshInstance3D por material com toda a geometria mesclada e um único
-## StaticBody3D com caixas de colisão. Edite os mapas em maps_src e rode:
+## StaticBody3D com caixas de colisão, mais o oclusor (tools/bake_occluders.gd). Edite os mapas em maps_src e rode:
 ##   godot --headless --path . --script res://tools/bake_maps.gd
 
 const MAPS := {
@@ -96,9 +97,10 @@ func _bake(root: Node3D, target_path: String) -> void:
 			root.remove_child(child)
 			child.free()
 
+	var occluder_triangles := BakeOccluders.build(root)
 	root.process_mode = Node.PROCESS_MODE_INHERIT
 	var packed := PackedScene.new()
 	packed.pack(root)
 	var err := ResourceSaver.save(packed, target_path)
-	print("%s: %d blocos CSG -> %d malhas, %d colisões (%s)" % [
-		target_path, shapes.size(), index, collision_count, "ok" if err == OK else "erro %d" % err])
+	print("%s: %d blocos CSG -> %d malhas, %d colisões, oclusor de %d triângulos (%s)" % [
+		target_path, shapes.size(), index, collision_count, occluder_triangles, "ok" if err == OK else "erro %d" % err])

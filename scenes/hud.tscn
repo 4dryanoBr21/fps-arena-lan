@@ -336,44 +336,66 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
 horizontal_alignment = 1
 
-[node name="PausePanel" type="VBoxContainer" parent="."]
+[node name="PausePanel" type="ColorRect" parent="."]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
+anchors_preset = 15
+anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -170.0
-offset_top = -200.0
-offset_right = 170.0
-offset_bottom = -24.0
 grow_horizontal = 2
-grow_vertical = 0
-theme_override_constants/separation = 8
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.02, 0.03, 0.05, 0.55)
 
-[node name="PauseHint" type="Label" parent="PausePanel"]
-unique_name_in_owner = true
+[node name="Center" type="CenterContainer" parent="PausePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Box" type="PanelContainer" parent="PausePanel/Center"]
+custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
-text = "Mouse liberado — clique na tela ou ESC para voltar"
+theme_override_styles/panel = SubResource("StyleBox_big")
+
+[node name="VBox" type="VBoxContainer" parent="PausePanel/Center/Box"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="PauseTitle" type="Label" parent="PausePanel/Center/Box/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "Pausado"
 horizontal_alignment = 1
 
-[node name="ResumeButton" type="Button" parent="PausePanel"]
+[node name="PauseHint" type="Label" parent="PausePanel/Center/Box/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.64, 0.72, 1)
+text = "Mouse liberado — clique na tela ou ESC para voltar"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ResumeButton" type="Button" parent="PausePanel/Center/Box/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
 text = "Voltar ao jogo"
 
-[node name="PauseSettingsButton" type="Button" parent="PausePanel"]
+[node name="PauseSettingsButton" type="Button" parent="PausePanel/Center/Box/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 text = "Configurações"
 
-[node name="LeaveButton" type="Button" parent="PausePanel"]
+[node name="LeaveButton" type="Button" parent="PausePanel/Center/Box/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 text = "Sair da partida"
 

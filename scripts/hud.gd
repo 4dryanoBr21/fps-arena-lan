@@ -66,7 +66,7 @@ func _ready() -> void:
 	%PauseSettingsButton.pressed.connect(settings_requested.emit)
 	%LeaveButton.pressed.connect(leave_requested.emit)
 	if GameInput.touch:
-		pause_hint.text = "Jogo pausado"
+		pause_hint.text = "Toque em Voltar ao jogo para continuar"
 
 	NetworkManager.scores_changed.connect(_refresh_scores)
 	NetworkManager.hit_confirmed.connect(_on_hit_confirmed)
@@ -77,6 +77,7 @@ func _ready() -> void:
 	NetworkManager.training_feedback.connect(func(text: String) -> void: _training_text = text)
 	Progress.reward_received.connect(_on_reward_received)
 	Progress.leveled_up.connect(_on_leveled_up)
+	touch_controls.weapon_slot_at = hotbar.slot_at
 	get_viewport().size_changed.connect(_apply_safe_area)
 	_apply_safe_area()
 
@@ -88,7 +89,9 @@ func _process(delta: float) -> void:
 		_check_safe_area(delta)
 	var active := GameInput.is_active()
 	var editing := touch_controls.editing
-	touch_controls.visible = GameInput.touch and (active or editing)
+	# Na tela de resultado os botões de toque ficariam por cima do placar.
+	var results_up := Time.get_ticks_msec() < _results_until_msec
+	touch_controls.visible = GameInput.touch and (active or editing) and not results_up
 	pause_panel.visible = not active and not settings_open and not editing
 
 	if NetworkManager.match_running:

@@ -16,6 +16,7 @@ const SLIDERS := {
 	"Volume": "master_volume",
 	"RenderScale": "render_scale",
 	"ButtonScale": "button_scale",
+	"UiScale": "ui_scale",
 }
 const CHECKS := {
 	"InvertY": "invert_y",
@@ -40,7 +41,8 @@ const TOUCH_ONLY := ["TouchSensitivity", "ButtonScale", "Vibration", "AimAssist"
 
 func _ready() -> void:
 	hide()
-	var mobile := OS.has_feature("mobile")
+	UiFit.keep_fitted(self, $Center/Panel)
+	var mobile := GameInput.is_phone()
 	for row: String in DESKTOP_ONLY:
 		if mobile:
 			_hide_row(row)
@@ -114,6 +116,7 @@ func _update_value_labels() -> void:
 	(grid.get_node("VolumeValue") as Label).text = "%d%%" % roundi(Settings.master_volume * 100.0)
 	(grid.get_node("RenderScaleValue") as Label).text = "%d%%" % roundi(Settings.render_scale * 100.0)
 	(grid.get_node("ButtonScaleValue") as Label).text = "%d%%" % roundi(Settings.button_scale * 100.0)
+	(grid.get_node("UiScaleValue") as Label).text = "%d%%" % roundi(Settings.ui_scale * 100.0)
 
 
 func _on_setting_changed(value: Variant, key: String) -> void:

@@ -42,11 +42,19 @@ const KICK_ROTATION_DEG: float = 6.0
 const KICK_TIME: float = 0.1
 const CAMERA_PUNCH_DEG: float = 0.8
 const CAMERA_PUNCH_TIME: float = 0.08
-## Aterrissagem: quanto a câmera e a arma afundam e quanto dura.
-const LAND_CAMERA_DROP: float = 0.06
-const LAND_WEAPON_DROP: float = 0.03
-const LAND_TIME: float = 0.3
+## Aterrissagem: quanto a câmera e a arma afundam e quanto dura. Seca: desce
+## quase na hora (LAND_HIT da duração) e volta rápido, sem arco longo.
+const LAND_CAMERA_DROP: float = 0.07
+const LAND_WEAPON_DROP: float = 0.035
+const LAND_TIME: float = 0.17
+const LAND_HIT: float = 0.18
 const LAND_MIN_SPEED: float = 4.0
+## Impulso do pulo: a arma dá um tranco curto para baixo ao sair do chão.
+const JUMP_KICK := Vector3(0.0, -0.025, 0.015)
+const JUMP_KICK_ROTATION_DEG: float = -4.0
+const JUMP_KICK_TIME: float = 0.12
+## No ar o balanço da arma para quase na hora (antes sumia em ~0,2 s).
+const AIR_BOB_STOP: float = 25.0
 ## Arma vista de fora (outros jogadores, bots e você em terceira pessoa): na
 ## altura da mão, ao lado do tronco, em vez de na frente do rosto.
 const BODY_REST := Vector3(0.42, -0.48, -0.3)
@@ -71,6 +79,8 @@ var _draw_time: float = 0.3
 var _reload_start_msec: int = 0
 var _reload_end_msec: int = 0
 var _land: float = 0.0
+var _land_strength: float = 0.0
+var _jump_kick: float = 0.0
 var _crouch_offset: float = 0.0
 var _last_shot_msec: int = -100000
 var _rng := RandomNumberGenerator.new()
@@ -96,6 +106,7 @@ func reset() -> void:
 	_draw = 0.0
 	_reload_end_msec = 0
 	_land = 0.0
+	_jump_kick = 0.0
 	_crouch_offset = 0.0
 
 
@@ -128,10 +139,17 @@ func reload(duration: float) -> void:
 	_reload_end_msec = _reload_start_msec + int(duration * 1000.0)
 
 
+## Saiu do chão pulando.
+func jump() -> void:
+	_jump_kick = 1.0
+
+
 ## Velocidade da queda ao tocar o chão (m/s, positiva).
 func land(fall_speed: float) -> void:
 	if fall_speed >= LAND_MIN_SPEED:
-		_land = clampf((fall_speed - LAND_MIN_SPEED) / 8.0 + 0.4, 0.0, 1.0)
+		# Força pela queda; a duração é sempre a mesma (o toque é sempre seco).
+		_land_strength = clampf((fall_speed - LAND_MIN_SPEED) / 8.0 + 0.4, 0.0, 1.0)
+		_land = 1.0
 
 
 ## Movimento da mira (pixels): a arma atrasa e volta.
@@ -168,7 +186,7 @@ func _update_movement(delta: float) -> void:
 	var flat_speed := Vector2(velocity.x, velocity.z).length()
 	var on_floor := _player.is_on_floor()
 	var target_bob := clampf(flat_speed / NetworkManager.RULES.walk_speed, 0.0, 1.5) if on_floor else 0.0
-	_bob_amount = move_toward(_bob_amount, target_bob, delta * 6.0)
+	_bob_amount = move_toward(_bob_amount, target_bob, delta * (6.0 if on_floor else AIR_BOB_STOP))
 	if on_floor:
 		_bob_time += delta * flat_speed * BOB_FREQUENCY * PI
 	var bob := Vector3(sin(_bob_time) * BOB_SIDE, -absf(sin(_bob_time)) * BOB_DROP, 0.0) * _bob_amount
@@ -221,6 +239,14 @@ func _update_actions(delta: float) -> void:
 	_land = move_toward(_land, 0.0, delta / LAND_TIME)
 	_action_offset.y -= LAND_WEAPON_DROP * _land_curve()
 
+	_jump_kick = move_toward(_jump_kick, 0.0, delta / JUMP_KICK_TIME)
+	if _jump_kick > 0.0:
+		# Sobe de 0 ao máximo no primeiro quarto e volta: um tranco, não um balanço.
+		var p := 1.0 - _jump_kick
+		var amount := minf(p / 0.25, 1.0) * (1.0 - smoothstep(0.25, 1.0, p))
+		_action_offset += JUMP_KICK * amount
+		_action_rotation.x += deg_to_rad(JUMP_KICK_ROTATION_DEG) * amount
+
 
 func _update_camera(delta: float) -> void:
 	_camera_punch = move_toward(_camera_punch, 0.0, delta / CAMERA_PUNCH_TIME)
@@ -232,9 +258,20 @@ func _update_camera(delta: float) -> void:
 	_player.camera.transform = Transform3D(view.basis * punch, view.origin + lift)
 
 
-## Afunda e volta: 0 no toque, máximo no meio, 0 no fim.
+## Afunda e volta: desce reto até o fundo em LAND_HIT da duração e sobe
+## desacelerando (0 no toque, 1 no fundo, 0 no fim).
 func _land_curve() -> float:
-	return 4.0 * _land * (1.0 - _land)
+	return land_curve(1.0 - _land) * _land_strength
+
+
+## p = 0 no toque, 1 no fim.
+static func land_curve(p: float) -> float:
+	if p <= 0.0 or p >= 1.0:
+		return 0.0
+	if p < LAND_HIT:
+		return p / LAND_HIT
+	var back := (p - LAND_HIT) / (1.0 - LAND_HIT)
+	return pow(1.0 - back, 2.0)
 
 
 static func _deg(degrees: Vector3) -> Vector3:

@@ -8,6 +8,10 @@ extends Node3D
 ##   --loadout=PRINCIPAL,SECUNDÁRIA,EQUIPAMENTO (ids do GameRules)
 ##   --autopilot  o jogador local desvia mais para a direita, mira no inimigo
 ##                mais perto e atira (testa o aprendizado do Treino adaptativo)
+##   --shot=ARQUIVO.png --screen=menu|hud|pause|settings|shop|habits|crosshair|results [--window=LxA]
+##                captura a tela pedida e fecha (tools/capturar_telas.py roda
+##                isso em várias resoluções para conferir a interface)
+##   --perf (com --shot) objetos e draw calls com e sem occlusion culling
 ## Com --quit-after o jogo usa progresso e hábitos zerados e não salva nada.
 
 const PLAYER_SCENE: PackedScene = preload("res://scenes/player.tscn")
@@ -17,6 +21,8 @@ var _in_game: bool = false
 var _loaded_path: String = ""
 var _autopilot: bool = false
 var _autopilot_time: float = 0.0
+## Teste: apelidos que apareceram no placar durante a sessão (relatório SEEN).
+var _seen_names: Dictionary = {}
 
 @onready var world: Node3D = $World
 @onready var players: Node3D = $Players
@@ -94,7 +100,8 @@ func _notification(what: int) -> void:
 				habits_panel.close()
 			elif _in_game:
 				_toggle_pause()
-			else:
+			elif not OS.has_feature("web"):
+				# No navegador "sair" só congelaria a página.
 				get_tree().quit()
 		NOTIFICATION_APPLICATION_FOCUS_OUT:
 			# Celular: ao sair do app, volta pausado.
@@ -251,6 +258,9 @@ func _run_test_args() -> void:
 	if args.has("name"):
 		Settings.nickname = args["name"]
 	if args.has("quit-after"):
+		NetworkManager.scores_changed.connect(func() -> void:
+			for id: int in NetworkManager.names:
+				_seen_names[NetworkManager.get_player_label(id)] = true)
 		# Teste automático: perfis zerados e só em memória (não lê nem grava o save).
 		Progress.persistent = false
 		Progress.profile = PlayerProfile.new()
@@ -271,9 +281,13 @@ func _run_test_args() -> void:
 		_load_map(map_index)
 		NetworkManager.host_game(NetworkManager.DEFAULT_PORT, map_index, int(args.get("bots", 0)))
 	elif args.has("join"):
-		NetworkManager.join_game(args["join"], NetworkManager.DEFAULT_PORT)
+		# --ws: entra por WebSocket, como a versão de navegador (teste do servidor duplo).
+		NetworkManager.join_game(args["join"], NetworkManager.DEFAULT_PORT,
+			args.has("ws") or NetworkManager.is_web())
 	if args.has("quit-after"):
 		get_tree().create_timer(float(args["quit-after"])).timeout.connect(_quit_with_report)
+	if args.has("shot"):
+		_capture_screen(str(args.get("screen", "menu")), args["shot"])
 
 
 ## Teste: 1,2 s desviando para a direita e 0,4 s para a esquerda, mirando
@@ -298,6 +312,85 @@ func _drive_autopilot(delta: float) -> void:
 		me.head.rotation.x = atan2(to.y, Vector2(to.x, to.z).length())
 
 
+## Teste visual: abre a tela pedida, espera assentar, salva a imagem e sai.
+func _capture_screen(screen: String, path: String) -> void:
+	Progress.persistent = false
+	Habits.persistent = false
+	# Janela sem borda no tamanho de --window=LxA, mesmo que as configurações
+	# salvas estejam em tela cheia.
+	var window_arg := ""
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--window="):
+			window_arg = arg.trim_prefix("--window=")
+	if not window_arg.is_empty():
+		var parts := window_arg.split("x")
+		# Só na memória (a captura nunca salva as configurações).
+		Settings.fullscreen = false
+		var wanted := Vector2i(parts[0].to_int(), parts[1].to_int())
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
+		# Sair da tela cheia é assíncrono no Windows: insiste até a janela obedecer.
+		for i in 30:
+			DisplayServer.window_set_size(wanted)
+			DisplayServer.window_set_position(Vector2i.ZERO)
+			await get_tree().process_frame
+			if DisplayServer.window_get_size() == wanted and i > 3:
+				break
+	if screen in ["hud", "pause", "results"]:
+		_start_training(3)
+		await get_tree().create_timer(2.5).timeout
+		# Mostra tudo que o HUD pode ter ao mesmo tempo (pior caso de espaço).
+		hud.settings_open = false
+		NetworkManager.kill_announced.emit(1000, 1001)
+		NetworkManager.kill_announced.emit(1, 1002)
+		if screen == "pause":
+			GameInput.release()
+		elif screen == "results":
+			NetworkManager.match_over.emit(1)
+		else:
+			GameInput.capture()
+	else:
+		match screen:
+			"settings":
+				_open_settings()
+			"shop":
+				_open_shop()
+			"habits":
+				_open_habits()
+			"crosshair":
+				_open_settings()
+				crosshair_editor.open()
+	for i in 20:
+		await get_tree().process_frame
+	if OS.get_cmdline_user_args().has("--perf"):
+		await _report_render_cost()
+	await RenderingServer.frame_post_draw
+	var err := get_viewport().get_texture().get_image().save_png(path)
+	print("SHOT %s %s %s janela=%s modo=%d viewport=%s" % [screen, path, "ok" if err == OK else "erro %d" % err,
+		DisplayServer.window_get_size(), DisplayServer.window_get_mode(), get_viewport().get_visible_rect().size])
+	get_tree().quit()
+
+
+## Teste de desempenho: objetos e draw calls do quadro com e sem occlusion
+## culling, de 8 direções a partir do jogador (média).
+func _report_render_cost() -> void:
+	var me := players.get_node_or_null("1") as FPSPlayer
+	if me == null:
+		return
+	for occlusion: bool in [true, false]:
+		get_viewport().use_occlusion_culling = occlusion
+		var objects := 0
+		var draws := 0
+		for i in 8:
+			me.rotation.y = TAU * i / 8.0
+			for f in 4:
+				await RenderingServer.frame_post_draw
+			objects += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)
+			draws += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+		print("PERF occlusion=%s objetos=%.1f draw_calls=%.1f" % [occlusion, objects / 8.0, draws / 8.0])
+	get_viewport().use_occlusion_culling = true
+
+
 ## Resumo legível por script (tests/smoke_test.sh) e sai.
 func _quit_with_report() -> void:
 	var total_deaths := 0
@@ -307,6 +400,7 @@ func _quit_with_report() -> void:
 		NetworkManager.is_online(), NetworkManager.get_role_text(), world.has_node("Map"),
 		players.get_child_count(), total_deaths])
 	print("SCORES %s" % NetworkManager.standings_text().replace("\n", " | "))
+	print("SEEN %s" % ",".join(PackedStringArray(_seen_names.keys())))
 	var loadouts := PackedStringArray()
 	for child in players.get_children():
 		var player := child as FPSPlayer

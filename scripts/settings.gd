@@ -29,6 +29,8 @@ var show_fps: bool = false
 var damage_numbers: bool = true
 ## Controles de toque.
 var button_scale: float = 1.0
+## Tamanho da interface sobre o automático do UiScale (1 = automático).
+var ui_scale: float = 1.0
 ## id do botão -> posição (fração da tela). Vazio = posições padrão.
 var touch_layout: Dictionary = {}
 var vibration: bool = true
@@ -57,7 +59,7 @@ func _ready() -> void:
 
 ## Padrões por plataforma: no celular começa leve para poupar bateria e calor.
 static func defaults() -> Dictionary:
-	var mobile := OS.has_feature("mobile")
+	var mobile := GameInput.is_phone()
 	return {
 		"nickname": "",
 		"mouse_sensitivity": 1.0,
@@ -72,6 +74,7 @@ static func defaults() -> Dictionary:
 		"show_fps": false,
 		"damage_numbers": true,
 		"button_scale": 1.0,
+		"ui_scale": 1.0,
 		"touch_layout": {},
 		"vibration": true,
 		"aim_assist": true,
@@ -104,6 +107,7 @@ func load_settings() -> void:
 	if not Crosshair.is_valid_pixels(crosshair_pixels):
 		crosshair_pixels = Crosshair.default_pixels()
 	crosshair_style = clampi(crosshair_style, 0, Crosshair.Style.size() - 1)
+	ui_scale = clampf(ui_scale, 0.75, 1.5)
 
 
 func save_settings() -> void:
@@ -154,7 +158,15 @@ func apply() -> void:
 	var viewport := get_viewport()
 	viewport.scaling_3d_scale = render_scale
 	viewport.msaa_3d = Viewport.MSAA_2X if quality >= QUALITY_HIGH else Viewport.MSAA_DISABLED
+	# Occlusion culling: os mapas trazem um oclusor (tools/bake_occluders.gd);
+	# quem está atrás das paredes nem é desenhado.
+	viewport.use_occlusion_culling = true
+	# LOD automático das malhas: quanto maior o limiar, mais cedo troca pela simples.
+	viewport.mesh_lod_threshold = 1.0 if quality >= QUALITY_HIGH else 2.0 if quality == QUALITY_MEDIUM else 4.0
 	RenderingServer.directional_shadow_atlas_set_size(4096 if quality >= QUALITY_HIGH else 2048, true)
+	# Borda da sombra: suave só no Alto (o filtro custa várias amostras por pixel).
+	RenderingServer.directional_soft_shadow_filter_set_quality(
+		RenderingServer.SHADOW_QUALITY_SOFT_LOW if quality >= QUALITY_HIGH else RenderingServer.SHADOW_QUALITY_HARD)
 	apply_quality_to(get_tree().root)
 	changed.emit()
 
@@ -168,6 +180,8 @@ func apply_quality_to(root: Node) -> void:
 			light.set_meta("base_shadow", light.shadow_enabled)
 		light.shadow_enabled = bool(light.get_meta("base_shadow")) and quality >= QUALITY_MEDIUM
 		light.directional_shadow_max_distance = 60.0 if quality >= QUALITY_HIGH else 35.0
+		# Cascatas: 4 no Alto; 2 no Médio (metade dos passes de sombra do sol).
+		light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if quality >= QUALITY_HIGH 			else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	for node in root.find_children("*", "WorldEnvironment", true, false):
 		var env := (node as WorldEnvironment).environment
 		if env == null:

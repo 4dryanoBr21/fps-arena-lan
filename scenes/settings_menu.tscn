@@ -165,6 +165,27 @@ custom_minimum_size = Vector2(56, 0)
 layout_mode = 2
 horizontal_alignment = 2
 
+[node name="UiScaleLabel" type="Label" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
+layout_mode = 2
+text = "Tamanho da interface"
+
+[node name="UiScaleSlider" type="HSlider" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 32)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.75
+max_value = 1.5
+step = 0.05
+value = 1.0
+
+[node name="UiScaleValue" type="Label" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+horizontal_alignment = 2
+
 [node name="QualityLabel" type="Label" parent="Center/Panel/Margin/VBox/Scroll/Grid"]
 layout_mode = 2
 text = "Qualidade gráfica"
@@ -360,6 +381,7 @@ size_flags_horizontal = 3
 text = "Restaurar padrão"
 
 [node name="CloseButton" type="Button" parent="Center/Panel/Margin/VBox/Buttons"]
+theme_type_variation = &"PrimaryButton"
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2

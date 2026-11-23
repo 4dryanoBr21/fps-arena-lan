@@ -3,9 +3,15 @@ extends HBoxContainer
 ## Barra de armas na parte de baixo do HUD: uma vaga por arma do jogador
 ## (principal, secundária, faca) com a tecla, a miniatura 3D, o nome e a
 ## munição. A arma na mão fica destacada. Liga-se ao jogador por bind().
+## No toque fica compacta, no alto da tela (embaixo dos botões do topo, longe
+## do joystick e dos botões de ação) e tocar numa vaga troca de arma.
 
 const SLOT_SIZE := Vector2(132, 96)
 const PREVIEW_SIZE := Vector2i(116, 44)
+const COMPACT_SLOT_SIZE := Vector2(92, 54)
+const COMPACT_PREVIEW_SIZE := Vector2i(76, 26)
+## Distância do topo no modo toque (abaixo dos botões placar/pausa/câmera).
+const COMPACT_TOP: float = 78.0
 ## Mesma escala de tamanho das miniaturas do Arsenal.
 const PREVIEW_MIN_WIDTH: float = 0.5
 const SELECTED_COLOR := Color(1.0, 0.85, 0.3)
@@ -19,13 +25,44 @@ var _ammo_labels: Array[Label] = []
 var _key_labels: Array[Label] = []
 var _selected_style: StyleBoxFlat
 var _idle_style: StyleBoxFlat
+var _compact: bool = false
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_theme_constant_override("separation", 8)
+	set_compact(GameInput.touch)
 	_idle_style = _make_style(Color(0.06, 0.07, 0.1, 0.72), Color(1, 1, 1, 0.12))
 	_selected_style = _make_style(Color(0.12, 0.13, 0.17, 0.9), SELECTED_COLOR)
+
+
+## Toque: compacta e no alto; PC: completa e embaixo.
+func set_compact(value: bool) -> void:
+	_compact = value
+	if value:
+		anchor_top = 0.0
+		anchor_bottom = 0.0
+		offset_top = COMPACT_TOP
+		offset_bottom = COMPACT_TOP + COMPACT_SLOT_SIZE.y
+		grow_vertical = Control.GROW_DIRECTION_END
+	else:
+		anchor_top = 1.0
+		anchor_bottom = 1.0
+		offset_top = -SLOT_SIZE.y - 16.0
+		offset_bottom = -16.0
+		grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_slot_ids = []
+	refresh()
+
+
+## Vaga sob um ponto da tela (coordenadas globais do canvas); -1 se nenhuma.
+func slot_at(global_point: Vector2) -> int:
+	if not is_visible_in_tree():
+		return -1
+	for i in _slots.size():
+		if _slots[i].get_global_rect().has_point(global_point):
+			return i
+	return -1
 
 
 func bind(player: FPSPlayer) -> void:
@@ -82,7 +119,7 @@ func _build(ids: PackedStringArray) -> void:
 	for i in ids.size():
 		var weapon := _player.weapons[i]
 		var slot := PanelContainer.new()
-		slot.custom_minimum_size = SLOT_SIZE
+		slot.custom_minimum_size = COMPACT_SLOT_SIZE if _compact else SLOT_SIZE
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var box := VBoxContainer.new()
 		box.add_theme_constant_override("separation", 0)
@@ -98,11 +135,13 @@ func _build(ids: PackedStringArray) -> void:
 		var ammo := _label("", 13)
 		top.add_child(ammo)
 
-		box.add_child(WeaponPreview.create(weapon.id, PREVIEW_SIZE, PREVIEW_MIN_WIDTH))
-		var title := _label(weapon.display_name, 12)
-		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		box.add_child(title)
+		box.add_child(WeaponPreview.create(weapon.id, COMPACT_PREVIEW_SIZE if _compact else PREVIEW_SIZE,
+			PREVIEW_MIN_WIDTH))
+		if not _compact:
+			var title := _label(weapon.display_name, 12)
+			title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			box.add_child(title)
 
 		add_child(slot)
 		_slots.append(slot)

@@ -108,7 +108,7 @@ custom_minimum_size = Vector2(150, 36)
 layout_mode = 2
 text = "Hábitos (IA)"
 
-[node name="Columns" type="HBoxContainer" parent="Center/Panel/Margin/VBox"]
+[node name="Columns" type="BoxContainer" parent="Center/Panel/Margin/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 24
 
@@ -162,6 +162,7 @@ placeholder_text = "7777"
 virtual_keyboard_type = 2
 
 [node name="HostButton" type="Button" parent="Center/Panel/Margin/VBox/Columns/Create"]
+theme_type_variation = &"PrimaryButton"
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
@@ -211,6 +212,7 @@ text = "127.0.0.1"
 placeholder_text = "IP do host"
 
 [node name="JoinButton" type="Button" parent="Center/Panel/Margin/VBox/Columns/Join/IPRow"]
+theme_type_variation = &"PrimaryButton"
 unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 36)
 layout_mode = 2
@@ -249,6 +251,7 @@ max_value = 6.0
 value = 3.0
 
 [node name="TrainingButton" type="Button" parent="Center/Panel/Margin/VBox/TrainingRow"]
+theme_type_variation = &"PrimaryButton"
 unique_name_in_owner = true
 custom_minimum_size = Vector2(150, 40)
 layout_mode = 2
@@ -278,5 +281,5 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
 theme_override_font_sizes/font_size = 13
-text = "WASD · Shift corre · Ctrl agacha · Espaço pula · Clique atira · R recarrega · 1/2/3 arma (3 = faca) · F5 câmera · Tab placar · ESC pausa"
+text = "WASD · Shift corre · Ctrl agacha · Espaço pula · Clique atira · R recarrega · 1/2/3 ou roda do mouse troca de arma (3 = faca) · F5 câmera · Tab placar · ESC pausa"
 autowrap_mode = 3

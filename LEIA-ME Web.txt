@@ -1,0 +1,35 @@
+FPS ARENA LAN - COMO JOGAR NO NAVEGADOR
+=======================================
+
+Funciona no Chrome, Edge, Firefox e Safari recentes, no PC e no celular
+(no celular aparecem os controles de toque; deite o aparelho).
+
+1) ABRIR NA REDE LOCAL (o jeito recomendado)
+   No PC que vai hospedar, com o Python instalado, dentro da pasta do jogo:
+       python tools/servir_web.py
+   Ele mostra um endereço como  http://192.168.0.10:8060 . Abra esse endereço
+   no navegador dos outros aparelhos da mesma rede. O IP do host já vem
+   preenchido no menu.
+   (Qualquer servidor HTTP comum serve a pasta; não precisa de nada especial.)
+
+2) HOSPEDAR
+   O navegador não consegue criar partidas. Quem hospeda abre o jogo de
+   Windows, Linux ou Android e clica em "Criar partida (Host)". Esse host
+   aceita ao mesmo tempo quem joga pelo app e quem joga pelo navegador.
+   Firewall do host: além da 7777/UDP, libere a 7779/TCP (é por ela que o
+   navegador entra).
+
+3) ENTRAR
+   Digite o IP do host (aparece na tela dele) e clique em "Entrar". No
+   navegador a lista automática de partidas não funciona.
+
+4) TREINO
+   O Treino adaptativo (você contra bots) funciona sozinho no navegador,
+   sem host e sem internet depois que a página carregou.
+
+OBSERVAÇÕES
+   - Clique na tela para travar o mouse; Esc solta e pausa.
+   - O progresso (moedas, XP, Arsenal) fica salvo neste navegador.
+   - Página aberta por HTTPS (site na internet) não consegue entrar em
+     partidas da rede local: o navegador bloqueia. Use o endereço HTTP do
+     passo 1. O Treino funciona de qualquer jeito.

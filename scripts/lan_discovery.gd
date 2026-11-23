@@ -22,7 +22,8 @@ var _seen_msec: Dictionary = {}
 
 
 func start_listening() -> void:
-	if _listener != null:
+	# O navegador não tem UDP: a lista fica vazia e o menu pede o IP.
+	if _listener != null or OS.has_feature("web"):
 		return
 	_listener = PacketPeerUDP.new()
 	var err := _listener.bind(PORT)
