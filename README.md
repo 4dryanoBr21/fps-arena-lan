@@ -92,7 +92,7 @@ amarelo (vermelho no abate), qualquer que seja a cor escolhida.
 |---|---|
 | WASD mover | Joystick na metade esquerda |
 | Mouse mirar | Arrastar na metade direita |
-| Clique esquerdo atirar | Botão vermelho (segure para atirar sem parar) |
+| Clique esquerdo atirar (segure para atirar sem parar) | Botão vermelho (segure para atirar sem parar) |
 | Espaço pular | Botão azul |
 | ESC pausar | Botão de pausa ou "voltar" |
 

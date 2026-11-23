@@ -16,6 +16,8 @@ const SCORE_PANEL_LINES: int = 3
 const REWARD_FEED_MAX: int = 4
 const REWARD_TIME: float = 1.6
 const COIN_COLOR := Color(1.0, 0.85, 0.3)
+## Segundos entre as conferências da área segura (celular girado 180°).
+const SAFE_AREA_CHECK_INTERVAL: float = 0.5
 
 ## O main liga enquanto o painel de configurações está aberto.
 var settings_open: bool = false
@@ -32,6 +34,8 @@ var _match_xp: int = 0
 var _training_text: String = ""
 ## A grade do placar (Tab) só é refeita quando aparece.
 var _grid_dirty: bool = true
+var _last_safe_area := Rect2()
+var _safe_area_timer: float = 0.0
 
 @onready var damage_flash: ColorRect = %DamageFlash
 @onready var damage_indicator: DamageIndicator = %DamageIndicator
@@ -77,9 +81,11 @@ func _ready() -> void:
 	_apply_safe_area()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not visible:
 		return
+	if OS.has_feature("mobile"):
+		_check_safe_area(delta)
 	var active := GameInput.is_active()
 	var editing := touch_controls.editing
 	touch_controls.visible = GameInput.touch and (active or editing)
@@ -317,15 +323,54 @@ func _add_cell(text: String, color: Color) -> void:
 
 
 ## Celular: afasta o HUD (e os controles de toque) do entalhe e das bordas arredondadas.
+## A mira, o flash e os arcos de dano ficam fora disso: eles precisam do
+## centro da TELA (para onde a câmera aponta e o tiro vai), não do centro da
+## área segura. Antes a mira andava metade da largura do entalhe e o tiro
+## parecia sair para o lado dela.
 func _apply_safe_area() -> void:
 	if not OS.has_feature("mobile"):
 		return
 	var window_size := Vector2(get_window().size)
 	if window_size.x <= 0.0 or window_size.y <= 0.0:
 		return
-	var safe := Rect2(DisplayServer.get_display_safe_area())
+	apply_safe_rect(_current_safe_area(window_size), window_size)
+
+
+## Encolhe o HUD até `safe` (pixels da janela) e devolve a tela inteira às
+## camadas que dependem do centro. Separado para o teste poder simular um entalhe.
+func apply_safe_rect(safe: Rect2, window_size: Vector2) -> void:
+	_last_safe_area = safe
 	var to_canvas := get_viewport_rect().size / window_size
 	offset_left = safe.position.x * to_canvas.x
 	offset_top = safe.position.y * to_canvas.y
 	offset_right = -(window_size.x - safe.end.x) * to_canvas.x
 	offset_bottom = -(window_size.y - safe.end.y) * to_canvas.y
+	for layer: Control in [cross.get_parent() as Control, damage_flash, damage_indicator]:
+		layer.offset_left = -offset_left
+		layer.offset_top = -offset_top
+		layer.offset_right = -offset_right
+		layer.offset_bottom = -offset_bottom
+
+
+## Área segura em coordenadas da janela (no Android a janela pode não começar
+## no 0: tela dividida, janela flutuante).
+func _current_safe_area(window_size: Vector2) -> Rect2:
+	var safe := Rect2(DisplayServer.get_display_safe_area())
+	safe.position -= Vector2(DisplayServer.window_get_position())
+	safe = safe.intersection(Rect2(Vector2.ZERO, window_size))
+	if safe.size.x <= 0.0 or safe.size.y <= 0.0:
+		return Rect2(Vector2.ZERO, window_size)
+	return safe
+
+
+## Girar o celular 180° (paisagem <-> paisagem invertida) troca o lado do
+## entalhe sem mudar o tamanho da janela, e size_changed não avisa.
+func _check_safe_area(delta: float) -> void:
+	_safe_area_timer -= delta
+	if _safe_area_timer > 0.0:
+		return
+	_safe_area_timer = SAFE_AREA_CHECK_INTERVAL
+	var window_size := Vector2(get_window().size)
+	if window_size.x > 0.0 and window_size.y > 0.0 \
+			and not _current_safe_area(window_size).is_equal_approx(_last_safe_area):
+		_apply_safe_area()

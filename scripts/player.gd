@@ -119,6 +119,8 @@ var _sv_grace_until_msec: int = 0
 var _sv_protected_until_msec: int = 0
 ## [[msec, posição, yaw, agachado], ...] do mais antigo para o mais novo.
 var _sv_history: Array = []
+## PC: botão de tiro seguro desde um clique com o jogo ativo.
+var _mouse_fire_held: bool = false
 
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var visual: Node3D = $Visual
@@ -238,8 +240,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_rotate_view((event as InputEventMouseMotion).relative, MOUSE_SENSITIVITY * Settings.mouse_sensitivity)
 	elif event.is_action_pressed("shoot"):
+		_mouse_fire_held = true
 		_try_shoot()
 		get_viewport().set_input_as_handled()
+	elif event.is_action_released("shoot"):
+		_mouse_fire_held = false
 	elif event.is_action_pressed("reload"):
 		start_reload()
 	elif event.is_action_pressed("weapon_1"):
@@ -259,6 +264,14 @@ func _process(delta: float) -> void:
 		_interpolate_remote()
 	elif is_local_player() and GameInput.touch:
 		_process_touch(delta)
+	elif _mouse_fire_held:
+		# PC: segurar o botão atira sem parar, como no celular (o cooldown
+		# limita a cadência). Só vale se o clique começou com o jogo ativo:
+		# o clique que recaptura o mouse não atira.
+		if not Input.is_action_pressed("shoot") or not alive or not GameInput.is_active():
+			_mouse_fire_held = false
+		else:
+			_try_shoot()
 
 
 ## Celular: mira, giroscópio, botões e tiro contínuo.
@@ -587,7 +600,7 @@ func _try_shoot() -> void:
 	ammo[weapon_index] -= 1
 
 	var origin := eye_position()
-	var forward := -head.global_basis.z
+	var forward := _aim_direction(w.max_range)
 	var directions := PackedVector3Array()
 	for i in w.pellets:
 		directions.append(CombatMath.spread_direction(forward, w.base_spread + _spread, _rng))
@@ -614,6 +627,26 @@ func _try_shoot() -> void:
 	if ammo[weapon_index] == 0:
 		start_reload()
 	_emit_ammo()
+
+
+## Direção do tiro saindo do olho. Em primeira pessoa é a frente da cabeça
+## (= centro da tela). Em terceira pessoa a câmera fica atrás e um pouco
+## acima, então a frente da cabeça só cruzava o centro da mira a uns 25 m:
+## mais perto o tiro passava abaixo dela, e com a câmera encostada na parede
+## errava ainda mais. Aqui o tiro vai do olho até o ponto sob a mira.
+func _aim_direction(max_range: float) -> Vector3:
+	var forward := -head.global_basis.z
+	if not is_local_player() or view_mode != ViewMode.BACK:
+		return forward
+	# Câmera sem o tranco do tiro, para o recuo visual não desviar a bala.
+	var view := head.global_transform * view_camera_transform()
+	var view_forward := -view.basis.z.normalized()
+	var target: Vector3 = _local_hit(view.origin, view_forward, max_range, 0.0)["end"]
+	var to_target := target - eye_position()
+	# Alvo entre a câmera e o próprio boneco (ou colado nele): mantém a frente.
+	if to_target.length() < 1.0 or to_target.normalized().dot(forward) < 0.7:
+		return forward
+	return to_target.normalized()
 
 
 ## Golpe de faca: sem munição; o servidor confere alcance e dano.

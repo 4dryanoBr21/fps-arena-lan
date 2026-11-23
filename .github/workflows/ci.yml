@@ -56,6 +56,10 @@ jobs:
         run: |
           "$GODOT" --headless --path . res://tests/crosshair_test.tscn
 
+      - name: Teste da mira x tiro (entalhe do celular, terceira pessoa)
+        run: |
+          "$GODOT" --headless --path . res://tests/aim_test.tscn
+
       - name: Teste de rede (host + bots + cliente)
         run: ./tests/smoke_test.sh
 
