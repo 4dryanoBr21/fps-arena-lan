@@ -2,7 +2,7 @@
 """Serve a versão de navegador (builds/web) na rede local.
 
 Rode no PC que vai hospedar a partida:
-    python tools/servir_web.py            (porta 8060)
+    python tools/servir_web.py            (porta 8060; no zip: python servir.py)
     python tools/servir_web.py 9000       (outra porta)
 e abra nos outros aparelhos o endereço http://IP-DO-PC:8060 que ele mostra.
 O IP do host já vem preenchido no menu do jogo.
@@ -17,7 +17,10 @@ import socket
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent / "builds" / "web"
+# Vai junto no zip da versão web como servir.py, ao lado do index.html; no
+# projeto, serve builds/web.
+HERE = Path(__file__).resolve().parent
+ROOT = HERE if (HERE / "index.html").exists() else HERE.parent / "builds" / "web"
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8060
 
 

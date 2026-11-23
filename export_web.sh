@@ -21,6 +21,7 @@ mkdir -p builds/web
 "$GODOT" --headless --path . --import
 "$GODOT" --headless --path . --export-release "Web" builds/web/index.html
 cp -f "LEIA-ME Web.txt" builds/web/
+cp -f tools/servir_web.py builds/web/servir.py
 rm -f builds/FPSArenaLAN-web.zip
 if command -v zip > /dev/null; then
 	(cd builds/web && zip -qr ../FPSArenaLAN-web.zip .)

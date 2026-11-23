@@ -5,8 +5,9 @@ Funciona no Chrome, Edge, Firefox e Safari recentes, no PC e no celular
 (no celular aparecem os controles de toque; deite o aparelho).
 
 1) ABRIR NA REDE LOCAL (o jeito recomendado)
-   No PC que vai hospedar, com o Python instalado, dentro da pasta do jogo:
-       python tools/servir_web.py
+   No PC que vai hospedar, com o Python instalado, dentro desta pasta:
+       python servir.py
+   (na pasta do projeto: python tools/servir_web.py)
    Ele mostra um endereço como  http://192.168.0.10:8060 . Abra esse endereço
    no navegador dos outros aparelhos da mesma rede. O IP do host já vem
    preenchido no menu.
