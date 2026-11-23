@@ -120,6 +120,7 @@ func _fire() -> void:
 	_host.set("_spread", 0.0)
 	_host.ammo[0] = 12
 	_host.set("_sv_last_shot_msec", -100000)
+	_host.set("_sv_next_shot_msec", -100000)
 	_host.call("_try_shoot")
 
 

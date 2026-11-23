@@ -37,6 +37,11 @@ const MIN_TRAINING_BOTS: int = 2
 const BOT_ID_MIN: int = 1000
 const BOT_ID_MAX: int = 1099
 const PING_INTERVAL: float = 2.0
+## Sincronia do relógio do servidor (ver server_msec).
+const CLOCK_INTERVAL: float = 1.0
+const CLOCK_FAST_INTERVAL: float = 0.1
+const CLOCK_FAST_SAMPLES: int = 5
+const CLOCK_KEEP_SAMPLES: int = 10
 const NICKNAME_MAX: int = 16
 const RULES: GameRules = preload("res://data/game_rules.tres")
 const MAPS := [
@@ -72,6 +77,12 @@ var _rng := RandomNumberGenerator.new()
 var _default_loadout: Dictionary = RULES.sanitize_loadout({})
 ## Servidor: ping (ms) dos jogadores do navegador, medido por _ping_web/_pong_web.
 var _web_rtt: Dictionary = {}
+## Cliente: relógio do servidor = Time.get_ticks_usec() + isto. Medido por
+## _clock_ping/_clock_pong; vale a amostra de menor ida e volta (a mais exata).
+var _clock_offset_usec: int = 0
+## Cliente: últimas amostras [ida e volta, offset] (microssegundos).
+var _clock_samples: Array = []
+var _clock_timer: float = 0.0
 
 
 func _ready() -> void:
@@ -89,6 +100,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if is_online() and not multiplayer.is_server():
+		_update_clock(delta)
 	if not is_online() or not multiplayer.is_server():
 		return
 	if match_running and Time.get_ticks_msec() >= match_end_msec:
@@ -105,6 +118,59 @@ func _process(delta: float) -> void:
 				_ping_web.rpc_id(peer_id, Time.get_ticks_msec())
 		_broadcast_scores()
 		discovery.update_info({"players": scores.size(), "map": get_map_name()})
+
+
+## Relógio do servidor em ms, igual em todos os aparelhos da partida (no
+## servidor é o próprio Time.get_ticks_msec). Os estados dos jogadores levam
+## esse carimbo e o tiro diz em que instante dele o atirador estava vendo o
+## mundo: é o que deixa o servidor conferir o acerto no instante exato.
+func server_msec() -> int:
+	if multiplayer.multiplayer_peer == null or multiplayer.is_server():
+		return Time.get_ticks_msec()
+	return (Time.get_ticks_usec() + _clock_offset_usec) / 1000
+
+
+## O relógio do servidor já foi medido (no servidor, sempre).
+func clock_ready() -> bool:
+	return multiplayer.multiplayer_peer == null or multiplayer.is_server() \
+		or _clock_samples.size() >= CLOCK_FAST_SAMPLES
+
+
+## Cliente: amostras rápidas logo que conecta, depois uma por segundo.
+func _update_clock(delta: float) -> void:
+	_clock_timer -= delta
+	if _clock_timer > 0.0:
+		return
+	_clock_timer = CLOCK_FAST_INTERVAL if _clock_samples.size() < CLOCK_FAST_SAMPLES else CLOCK_INTERVAL
+	_clock_ping.rpc_id(1, Time.get_ticks_usec())
+
+
+@rpc("any_peer", "call_remote", "unreliable")
+func _clock_ping(client_usec: int) -> void:
+	if multiplayer.is_server():
+		_clock_pong.rpc_id(multiplayer.get_remote_sender_id(), client_usec, Time.get_ticks_usec())
+
+
+@rpc("authority", "call_remote", "unreliable")
+func _clock_pong(client_usec: int, server_usec: int) -> void:
+	var now := Time.get_ticks_usec()
+	var rtt := now - client_usec
+	if rtt < 0:
+		return
+	_clock_samples.append([rtt, server_usec + rtt / 2 - now])
+	if _clock_samples.size() > CLOCK_KEEP_SAMPLES:
+		_clock_samples.pop_front()
+	var best: Array = _clock_samples[0]
+	for sample: Array in _clock_samples:
+		if int(sample[0]) < int(best[0]):
+			best = sample
+	_clock_offset_usec = int(best[1])
+
+
+func _reset_clock() -> void:
+	_clock_samples.clear()
+	_clock_offset_usec = 0
+	_clock_timer = 0.0
 
 
 ## Versão de navegador (sem UDP: entra por WebSocket e não hospeda).
@@ -237,6 +303,7 @@ func leave_game(reason: String = "Desconectado.") -> void:
 	if multiplayer.multiplayer_peer != null:
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	_reset_clock()
 	var final_scores := standings_text()
 	scores.clear()
 	deaths.clear()
@@ -610,6 +677,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 
 func _on_connected_to_server() -> void:
+	_reset_clock()
 	status_changed.emit("Conectado como peer %d. Carregando mapa..." % multiplayer.get_unique_id())
 	_hello.rpc_id(1, get_version(), clean_nickname(Settings.nickname))
 

@@ -24,6 +24,7 @@ func _initialize() -> void:
 	_test_habits_save()
 	_test_weapon_models()
 	_test_knife()
+	_test_kill_heal()
 	print("%d verificações, %d falha(s)" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
 
@@ -422,3 +423,16 @@ func _test_knife() -> void:
 	_check(not CombatMath.is_backstab(Vector3(-2, 0, 0), victim, PI * 0.5), "vítima virada (yaw 90°): atacante em -X está na frente")
 	_check(not CombatMath.is_backstab(victim, victim, 0.0), "mesma posição não conta")
 
+
+
+func _test_kill_heal() -> void:
+	var rules := load("res://data/game_rules.tres") as GameRules
+	_check(rules.kill_heal_ratio >= 0.85 and rules.kill_heal_ratio <= 1.0, "abate devolve a vida quase toda")
+	var near_full := ceili(rules.max_health * rules.kill_heal_ratio)
+	_check(rules.health_after_kill(5, rules.max_health) == near_full, "com 5 de vida, o abate cura até %d" % near_full)
+	_check(rules.health_after_kill(rules.max_health, rules.max_health) == rules.max_health, "vida cheia continua cheia")
+	_check(rules.health_after_kill(near_full + 1, rules.max_health) == near_full + 1, "não tira vida de quem já está acima")
+	_check(rules.health_after_kill(10, 150) == ceili(150 * rules.kill_heal_ratio), "vale para a vida com colete")
+	var off := rules.duplicate() as GameRules
+	off.kill_heal_ratio = 0.0
+	_check(off.health_after_kill(30, 100) == 30, "0 desliga a cura")

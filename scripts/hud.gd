@@ -11,6 +11,7 @@ signal leave_requested
 const RULES: GameRules = preload("res://data/game_rules.tres")
 const KILL_FEED_MAX: int = 5
 const KILL_FEED_TIME: float = 4.0
+const HEAL_FLASH_COLOR := Color(0.25, 1.0, 0.4)
 ## Linhas de jogadores no painel pequeno do canto.
 const SCORE_PANEL_LINES: int = 3
 const REWARD_FEED_MAX: int = 4
@@ -28,6 +29,7 @@ var _killer_text: String = ""
 var _results_until_msec: int = 0
 var _hitmarker_tween: Tween
 var _flash_tween: Tween
+var _damage_flash_color: Color
 ## Moedas e XP ganhos na partida atual (zera quando outra começa).
 var _match_coins: int = 0
 var _match_xp: int = 0
@@ -62,6 +64,7 @@ var _safe_area_timer: float = 0.0
 
 
 func _ready() -> void:
+	_damage_flash_color = Color(damage_flash.color, 1.0)
 	%ResumeButton.pressed.connect(GameInput.capture)
 	%PauseSettingsButton.pressed.connect(settings_requested.emit)
 	%LeaveButton.pressed.connect(leave_requested.emit)
@@ -138,6 +141,7 @@ func bind_player(player: FPSPlayer) -> void:
 	_player = player
 	damage_indicator.player = player
 	player.health_changed.connect(_on_health_changed)
+	player.kill_healed.connect(_on_kill_healed)
 	player.died.connect(_on_died)
 	player.respawned.connect(_on_respawned)
 	player.view_changed.connect(_on_view_changed)
@@ -155,11 +159,20 @@ func _on_health_changed(health: int, max_health: int, damaged: bool) -> void:
 	if fill != null:
 		fill.bg_color = FPSPlayer.health_color(float(health) / max_health)
 	if damaged:
-		if _flash_tween != null:
-			_flash_tween.kill()
-		damage_flash.color.a = 0.4
-		_flash_tween = create_tween()
-		_flash_tween.tween_property(damage_flash, "color:a", 0.0, 0.35)
+		_flash(_damage_flash_color, 0.4, 0.35)
+
+
+## Cura por abate: lampejo verde.
+func _on_kill_healed(_amount: int) -> void:
+	_flash(HEAL_FLASH_COLOR, 0.25, 0.5)
+
+
+func _flash(tint: Color, alpha: float, duration: float) -> void:
+	if _flash_tween != null:
+		_flash_tween.kill()
+	damage_flash.color = Color(tint, alpha)
+	_flash_tween = create_tween()
+	_flash_tween.tween_property(damage_flash, "color:a", 0.0, duration)
 
 
 ## Visão de frente (terceira pessoa olhando para o jogador): sem mira.

@@ -40,6 +40,9 @@ properties/3/replication_mode = 2
 properties/4/path = NodePath(".:net_weapon")
 properties/4/spawn = true
 properties/4/replication_mode = 2
+properties/5/path = NodePath(".:net_stamp")
+properties/5/spawn = true
+properties/5/replication_mode = 1
 
 [node name="Player" type="CharacterBody3D"]
 script = ExtResource("1_player")
@@ -82,6 +85,6 @@ cast_shadow = 0
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, -0.43)
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
-replication_interval = 0.05
-delta_interval = 0.05
+replication_interval = 0.033
+delta_interval = 0.033
 replication_config = SubResource("SceneReplicationConfig_player")

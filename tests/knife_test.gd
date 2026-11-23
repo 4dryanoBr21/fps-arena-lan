@@ -45,10 +45,17 @@ func _ready() -> void:
 	_check(_host.weapon_data().melee, "jogador puxou a faca")
 
 	# 1) Pelas costas: o bot olha para o mesmo lado que o jogador.
+	# Jogador machucado (20 de vida) para conferir a cura por abate.
+	_host._sync_health.rpc(20)
+	var heals: Array[int] = []
+	_host.kill_healed.connect(func(amount: int) -> void: heals.append(amount))
 	var victim := _bots[0]
 	await _place(victim, _host.global_position + forward * 1.4, 0.0)
 	await _slash()
 	_check(not victim.alive, "pelas costas mata (vida %d de %d)" % [victim.health, victim.max_health()])
+	var expected := RULES().health_after_kill(20, _host.max_health())
+	_check(_host.health == expected and heals == [expected - 20],
+		"abate cura o jogador: vida %d (esperado %d), avisos %s" % [_host.health, expected, heals])
 	_check(_numbers.size() == 1 and _numbers[0] == [knife.backstab_damage, false, true],
 		"número de dano do golpe pelas costas: %s" % [_numbers])
 	var shown: Array = Fx.get("_numbers").filter(func(label: Label3D) -> bool: return label.visible)

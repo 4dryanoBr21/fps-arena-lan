@@ -18,6 +18,9 @@ extends Resource
 @export var spawn_protection: float = 1.5
 ## Dano nas pernas em relação ao do corpo (hitboxes em scripts/hitboxes.gd).
 @export var leg_damage_ratio: float = 0.75
+## Cura por abate: quem elimina volta para esta fração da vida máxima
+## (0,9 = 90%; nunca tira vida de quem já está acima disso; 0 desliga).
+@export_range(0.0, 1.0, 0.05) var kill_heal_ratio: float = 0.9
 
 @export_group("Partida")
 ## Mata-mata: duração (s) e limite de abates.
@@ -62,6 +65,12 @@ extends Resource
 var max_upgrade_tier: int:
 	get:
 		return upgrade_prices.size()
+
+
+## Vida de quem fez o abate depois da cura (ver kill_heal_ratio).
+func health_after_kill(current: int, max_health: int) -> int:
+	var target := ceili(max_health * clampf(kill_heal_ratio, 0.0, 1.0))
+	return clampi(maxi(current, target), 0, max_health)
 
 
 func weapon_by_id(id: String) -> WeaponData:

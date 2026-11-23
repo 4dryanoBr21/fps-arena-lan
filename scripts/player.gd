@@ -2,15 +2,19 @@ class_name FPSPlayer
 extends CharacterBody3D
 ## Controlador FPS. Quem controla o corpo (o peer dono, ou o servidor no caso
 ## de bot) move e escreve o estado net_*; os outros recebem pelo
-## MultiplayerSynchronizer e interpolam com um atraso de INTERP_DELAY_MSEC.
-## O servidor confere movimento, cadência e munição e decide os acertos
-## refazendo o tiro nas posições de alguns milissegundos atrás (compensação
-## de latência). Vida, morte e respawn são replicados por RPC.
+## MultiplayerSynchronizer e interpolam um pouco no passado. Cada estado leva
+## o carimbo do relógio do servidor (net_stamp); o tiro diz em que instante
+## desse relógio o atirador estava vendo o mundo, e o servidor confere o
+## acerto com todo mundo exatamente onde estava naquele instante (a ideia do
+## "sub-tick" do CS2: o tiro não fica preso ao tick nem a uma estimativa de
+## ping). O servidor também confere movimento, cadência e munição. Vida, morte e respawn são replicados por RPC.
 ## As armas e o equipamento vêm do Arsenal: o servidor confere e espalha a
 ## lista (NetworkManager.loadouts) junto com o placar; cada peer aplica aqui.
 
 signal health_changed(health: int, max_health: int, damaged: bool)
 signal died(killer_id: int)
+## Só no aparelho do dono: vida recuperada por ter eliminado alguém.
+signal kill_healed(amount: int)
 signal respawned
 signal ammo_changed(ammo: int, magazine: int, reloading: bool)
 signal weapon_changed(weapon: WeaponData)
@@ -38,12 +42,25 @@ const BAR_WIDTH: float = 0.9
 const BAR_HEIGHT: float = 0.09
 
 ## Interpolação dos remotos e histórico do servidor para compensar latência.
-const INTERP_DELAY_MSEC: int = 100
+## O atraso da interpolação se ajusta à rede: o quanto os estados chegam
+## atrasados (pico recente) + um intervalo de envio + folga, nunca menos que
+## o mínimo. Assim sempre há um estado depois do instante desenhado.
+const INTERP_MIN_DELAY_MSEC: int = 50
+const SYNC_INTERVAL_MSEC: int = 33
+const INTERP_MARGIN_MSEC: int = 15
+## Quanto o pico de atraso desce a cada estado recebido (sobe na hora).
+const LATE_DECAY: float = 0.02
 const HISTORY_MSEC: int = 1000
-const MAX_REWIND_MSEC: int = 300
+const MAX_REWIND_MSEC: int = 400
 ## Folgas das conferências do servidor.
 const ORIGIN_TOLERANCE: float = 1.5
 const COOLDOWN_TOLERANCE: float = 0.8
+## Segurando o gatilho, o próximo tiro conta do horário previsto do anterior
+## (não do quadro em que foi notado) se o atraso for até isto: a cadência
+## média fica exata. Mais que isso é um clique novo e conta de agora.
+const CADENCE_CARRY_USEC: int = 25000
+## Servidor: atraso de rede que a conferência de cadência tolera.
+const SV_CADENCE_SLACK_MSEC: int = 20
 const RELOAD_TOLERANCE: float = 0.9
 const MOVE_TOLERANCE: float = 1.0
 const CORRECTION_GRACE_MSEC: int = 500
@@ -83,6 +100,13 @@ var net_yaw: float = 0.0
 var net_pitch: float = 0.0
 var net_crouch: bool = false: set = _set_net_crouch
 var net_weapon: int = 0: set = _set_net_weapon
+## Relógio do servidor (NetworkManager.server_msec) em que o estado foi escrito.
+var net_stamp: int = 0
+
+## Pico recente de atraso dos estados recebidos (ms) e o instante do relógio
+## do servidor que está desenhado na tela agora (vai junto com cada tiro).
+static var _late_msec: float = 0.0
+static var view_msec: int = 0
 
 var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var health: int = RULES.max_health
@@ -102,7 +126,15 @@ static var view_mode: ViewMode = ViewMode.FIRST
 var _animator: WeaponAnimator
 ## Quem controla o corpo: correndo de verdade neste quadro (pose de corrida).
 var _sprinting: bool = false
-var _cooldown: float = 0.0
+## Próximo tiro liberado (Time.get_ticks_usec). A cadência conta em tempo
+## real, não em ticks de física: com 60 ticks, 0,1 s virava 7 ticks (117 ms).
+var _next_shot_usec: int = 0
+## Segundos até o próximo tiro (lido/escrito em cima de _next_shot_usec).
+var _cooldown: float:
+	get:
+		return maxf((_next_shot_usec - Time.get_ticks_usec()) / 1000000.0, 0.0)
+	set(value):
+		_next_shot_usec = Time.get_ticks_usec() + int(value * 1000000.0)
 var _spread: float = 0.0
 var _reload_until_msec: int = 0
 var _crouching: bool = false
@@ -122,11 +154,23 @@ var _sv_ammo: Array[int] = []
 var _sv_weapon: int = 0
 var _sv_reload_until_msec: int = 0
 var _sv_last_shot_msec: int = -100000
+## Horário a partir do qual o próximo tiro vale (agenda, como no cliente).
+var _sv_next_shot_msec: int = -100000
+## Instante (já limitado) que o último tiro disse ver; para os testes.
+var _sv_last_seen_msec: int = 0
 var _sv_last_move_msec: int = 0
 var _sv_grace_until_msec: int = 0
 var _sv_protected_until_msec: int = 0
 ## [[msec, posição, yaw, agachado], ...] do mais antigo para o mais novo.
 var _sv_history: Array = []
+## Jogador local: posição antes e depois do último tick de física. A física
+## roda a 60 Hz e a tela pode ter 144 Hz; a câmera e o corpo são desenhados
+## entre as duas (como a "physics interpolation" do Godot, só para quem joga),
+## e o andar de lado não trepida. A mira gira na hora, sem esperar o tick.
+var _phys_prev: Vector3 = Vector3.ZERO
+var _phys_cur: Vector3 = Vector3.ZERO
+## Altura do olho (a cabeça desce ao agachar); a suavização soma por cima.
+var _eye_height: float = STAND_HEIGHT - EYE_BELOW_TOP
 ## PC: botão de tiro seguro desde um clique com o jogo ativo.
 var _mouse_fire_held: bool = false
 var _last_scroll_msec: int = -100000
@@ -172,6 +216,8 @@ func _ready() -> void:
 
 	if is_multiplayer_authority():
 		net_position = global_position
+		_phys_prev = global_position
+		_phys_cur = global_position
 	else:
 		global_position = net_position
 		rotation.y = net_yaw
@@ -179,6 +225,7 @@ func _ready() -> void:
 		synchronizer.synchronized.connect(_on_synchronized)
 
 	if is_local:
+		_late_msec = 0.0
 		GameInput.capture()
 		Settings.changed.connect(_apply_settings)
 		_apply_settings()
@@ -274,6 +321,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	if is_local_player():
+		_smooth_render()
 	if not is_multiplayer_authority():
 		_interpolate_remote()
 	elif is_local_player() and GameInput.touch:
@@ -384,8 +433,8 @@ func _enemy_near_crosshair() -> bool:
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority() or not alive:
 		return
+	_phys_prev = global_position
 
-	_cooldown = maxf(_cooldown - delta, 0.0)
 	_spread = maxf(_spread - weapon_data().spread_recovery * delta, 0.0)
 	_update_reload()
 
@@ -444,15 +493,31 @@ func _physics_process(delta: float) -> void:
 	_sprinting = is_on_floor() and speed > RULES.walk_speed * speed_multiplier() \
 		and Vector2(velocity.x, velocity.z).length() > RULES.walk_speed * 0.5
 
+	_phys_cur = global_position
 	if global_position.y < FALL_LIMIT_Y:
 		_request_new_spawn()
 	# Yaw antes da posição: o histórico do servidor é gravado junto com ela.
 	net_yaw = rotation.y
 	net_pitch = head.rotation.x
+	net_stamp = NetworkManager.server_msec()
 	net_position = global_position
 
 	if is_bot and _bot_brain.fire:
 		_try_shoot()
+
+
+## Desenha a câmera e o corpo do jogador local entre os dois últimos ticks.
+## Só o desenho: a colisão e o estado enviado continuam no tick. O tiro sai
+## da cabeça desenhada (eye_position), que é de onde a mira está apontando.
+func _smooth_render() -> void:
+	var offset := Vector3.ZERO
+	if alive:
+		var shown := _phys_prev.lerp(_phys_cur, Engine.get_physics_interpolation_fraction())
+		offset = Basis(Vector3.UP, -rotation.y) * (shown - global_position)
+		if offset.length() > SNAP_DISTANCE:
+			offset = Vector3.ZERO
+	head.position = Vector3(0.0, _eye_height, 0.0) + offset
+	visual.position = offset
 
 
 func _apply_settings() -> void:
@@ -478,11 +543,12 @@ func _apply_crouch_shape(crouched: bool) -> void:
 	var capsule := collision_shape.shape as CapsuleShape3D
 	capsule.height = height
 	collision_shape.position.y = height * 0.5
-	var old_eye := head.position.y
-	head.position.y = height - EYE_BELOW_TOP
+	var old_eye := _eye_height
+	_eye_height = height - EYE_BELOW_TOP
+	head.position.y = _eye_height
 	if _animator != null:
 		# A câmera desliza até a altura nova (a colisão já mudou).
-		_animator.crouch_changed(old_eye - head.position.y)
+		_animator.crouch_changed(old_eye - _eye_height)
 	visual.scale.y = height / STAND_HEIGHT
 
 
@@ -627,10 +693,10 @@ func _try_shoot() -> void:
 	if ammo[weapon_index] <= 0:
 		if is_local_player():
 			Sfx.play(Sfx.EMPTY, -4.0)
-		_cooldown = w.fire_cooldown
+		_start_cooldown(w.fire_cooldown)
 		start_reload()
 		return
-	_cooldown = w.fire_cooldown
+	_start_cooldown(w.fire_cooldown)
 	ammo[weapon_index] -= 1
 
 	var origin := eye_position()
@@ -641,9 +707,9 @@ func _try_shoot() -> void:
 	_spread = minf(_spread + w.spread_per_shot, w.max_spread)
 
 	if is_bot:
-		_server_resolve_shot(name.to_int(), origin, directions)
+		_server_resolve_shot(name.to_int(), origin, directions, Time.get_ticks_msec())
 	else:
-		_server_fire.rpc_id(1, origin, directions)
+		_server_fire.rpc_id(1, origin, directions, view_msec)
 
 	# Efeito visual imediato, com o mesmo teste do servidor (paredes + hitboxes
 	# dos jogadores como estão na tela); o dano é decidido no servidor.
@@ -661,6 +727,12 @@ func _try_shoot() -> void:
 	if ammo[weapon_index] == 0:
 		start_reload()
 	_emit_ammo()
+
+
+func _start_cooldown(seconds: float) -> void:
+	var now := Time.get_ticks_usec()
+	var base := _next_shot_usec if now - _next_shot_usec <= CADENCE_CARRY_USEC else now
+	_next_shot_usec = base + int(seconds * 1000000.0)
 
 
 ## Direção do tiro saindo do olho. Em primeira pessoa é a frente da cabeça
@@ -685,13 +757,13 @@ func _aim_direction(max_range: float) -> Vector3:
 
 ## Golpe de faca: sem munição; o servidor confere alcance e dano.
 func _try_slash(w: WeaponData) -> void:
-	_cooldown = w.fire_cooldown
+	_start_cooldown(w.fire_cooldown)
 	var origin := eye_position()
 	var direction := -head.global_basis.z
 	if is_bot:
-		_server_resolve_shot(name.to_int(), origin, PackedVector3Array([direction]))
+		_server_resolve_shot(name.to_int(), origin, PackedVector3Array([direction]), Time.get_ticks_msec())
 	else:
-		_server_fire.rpc_id(1, origin, PackedVector3Array([direction]))
+		_server_fire.rpc_id(1, origin, PackedVector3Array([direction]), view_msec)
 	# Som de acerto imediato com o mesmo teste do servidor (o dano é dele).
 	var hit := _local_hit(origin, direction, w.max_range, MELEE_HIT_RADIUS_BONUS)
 	var hit_mask := 0
@@ -762,22 +834,25 @@ func _show_slash(w: WeaponData, point: Vector3, hit_mask: int) -> void:
 
 ## Atirador -> servidor: origem e direções de cada projétil.
 @rpc("any_peer", "call_local", "reliable")
-func _server_fire(origin: Vector3, directions: PackedVector3Array) -> void:
+func _server_fire(origin: Vector3, directions: PackedVector3Array, seen_msec: int) -> void:
 	if not multiplayer.is_server():
 		return
 	var shooter_id := multiplayer.get_remote_sender_id()
 	if shooter_id != name.to_int():
 		return
-	_server_resolve_shot(shooter_id, origin, directions)
+	_server_resolve_shot(shooter_id, origin, directions, seen_msec)
 
 
 ## Só no servidor: confere cadência, munição e origem e aplica o dano.
-func _server_resolve_shot(shooter_id: int, origin: Vector3, directions: PackedVector3Array) -> void:
+## `seen_msec`: instante (relógio do servidor) do mundo na tela do atirador.
+func _server_resolve_shot(shooter_id: int, origin: Vector3, directions: PackedVector3Array, seen_msec: int) -> void:
 	if not alive:
 		return
 	var w := weapon_data(_sv_weapon)
 	var now := Time.get_ticks_msec()
-	if now - _sv_last_shot_msec < int(w.fire_cooldown * 1000.0 * COOLDOWN_TOLERANCE):
+	var cooldown_msec := int(w.fire_cooldown * 1000.0)
+	var slack := int(cooldown_msec * (1.0 - COOLDOWN_TOLERANCE)) + SV_CADENCE_SLACK_MSEC
+	if now + slack < _sv_next_shot_msec:
 		return
 	_server_update_reload(now)
 	if directions.size() != w.pellets:
@@ -785,6 +860,7 @@ func _server_resolve_shot(shooter_id: int, origin: Vector3, directions: PackedVe
 	if not w.melee and (_sv_reload_until_msec > 0 or _sv_ammo[_sv_weapon] <= 0):
 		return
 	_sv_last_shot_msec = now
+	_sv_next_shot_msec = maxi(_sv_next_shot_msec, now - slack) + cooldown_msec
 	if not w.melee:
 		_sv_ammo[_sv_weapon] -= 1
 	if protected:
@@ -795,7 +871,8 @@ func _server_resolve_shot(shooter_id: int, origin: Vector3, directions: PackedVe
 	if origin.distance_to(eye) > ORIGIN_TOLERANCE:
 		origin = eye
 
-	# Cada vítima volta no tempo o quanto o atirador a via atrasada.
+	_sv_last_seen_msec = clampi(seen_msec, now - MAX_REWIND_MSEC, now)
+	# Cada vítima volta ao instante em que o atirador a via.
 	var players: Array[FPSPlayer] = []
 	var states: Array = []
 	var exclude: Array[RID] = []
@@ -804,7 +881,7 @@ func _server_resolve_shot(shooter_id: int, origin: Vector3, directions: PackedVe
 		exclude.append(player.get_rid())
 		if player != self and player.alive:
 			players.append(player)
-			states.append(player.state_at(now - _rewind_msec(shooter_id, player)))
+			states.append(player.state_at(_victim_msec(shooter_id, player, seen_msec, now)))
 
 	var space := get_world_3d().direct_space_state
 	var grow := MELEE_HIT_RADIUS_BONUS if w.melee else 0.0
@@ -856,17 +933,16 @@ func _server_resolve_shot(shooter_id: int, origin: Vector3, directions: PackedVe
 		victim.server_apply_damage(shooter_id, damage_by_victim[victim], net_position, headshot_victims.has(victim))
 
 
-## Quanto voltar no tempo para conferir um tiro: o quanto o atirador via a
-## vítima atrasada. Um cliente vê o estado que o servidor tinha um ping inteiro
-## antes (ida do estado até ele + volta do tiro) mais a interpolação dos
-## remotos. O host vê no presente quem ele mesmo simula (bots e ele próprio)
-## e com o atraso da interpolação os humanos remotos. Bots enxergam o presente.
-func _rewind_msec(shooter_id: int, victim: FPSPlayer) -> int:
+## Em que instante conferir a vítima: o que o atirador disse que via (o
+## mundo na tela dele, no relógio do servidor), até MAX_REWIND_MSEC atrás.
+## Quem roda no próprio aparelho do atirador ele vê no presente: o host vê
+## assim os bots; bots atirando veem tudo no presente.
+func _victim_msec(shooter_id: int, victim: FPSPlayer, seen_msec: int, now: int) -> int:
 	if NetworkManager.is_bot_id(shooter_id):
-		return 0
-	if shooter_id == 1:
-		return 0 if victim.is_multiplayer_authority() else INTERP_DELAY_MSEC
-	return clampi(NetworkManager.get_peer_rtt(shooter_id) + INTERP_DELAY_MSEC, 0, MAX_REWIND_MSEC)
+		return now
+	if shooter_id == 1 and victim.is_multiplayer_authority():
+		return now
+	return clampi(seen_msec, now - MAX_REWIND_MSEC, now)
 
 
 ## Só no servidor: onde estavam os pés deste jogador no instante pedido.
@@ -936,12 +1012,31 @@ func server_apply_damage(attacker_id: int, damage: int, from_position: Vector3, 
 		global_position + Vector3.UP * (body_height() + 0.35), headshot)
 	if killed:
 		_die(attacker_id, headshot)
+		attacker.server_heal_for_kill()
 
 
 @rpc("any_peer", "call_local", "reliable")
 func _damaged(from_position: Vector3) -> void:
 	if multiplayer.get_remote_sender_id() == 1:
 		damaged_from.emit(from_position)
+
+
+## Só no servidor: cura de quem acabou de eliminar alguém.
+func server_heal_for_kill() -> void:
+	if not alive:
+		return
+	var healed := RULES.health_after_kill(health, max_health())
+	if healed > health:
+		var amount := healed - health
+		_sync_health.rpc(healed)
+		if not is_bot:
+			_kill_healed.rpc_id(name.to_int(), amount)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _kill_healed(amount: int) -> void:
+	if multiplayer.get_remote_sender_id() == 1:
+		kill_healed.emit(amount)
 
 
 ## Só no servidor.
@@ -1079,12 +1174,15 @@ func _teleport(pos: Vector3) -> void:
 
 func _teleport_to(pos: Vector3) -> void:
 	global_position = pos
+	_phys_prev = pos
+	_phys_cur = pos
 	velocity = Vector3.ZERO
 	# Nasce olhando para o centro do mapa.
 	var to_center := -Vector3(pos.x, 0.0, pos.z)
 	if to_center.length() > 0.01:
 		rotation.y = atan2(-to_center.x, -to_center.z)
 	head.rotation.x = 0.0
+	net_stamp = NetworkManager.server_msec()
 	net_position = global_position
 	net_yaw = rotation.y
 	net_pitch = 0.0
@@ -1094,15 +1192,24 @@ func _teleport_to(pos: Vector3) -> void:
 
 func _set_net_position(value: Vector3) -> void:
 	if is_inside_tree() and multiplayer.is_server():
-		if not is_multiplayer_authority() and not _server_accepts_move(value):
+		if not is_multiplayer_authority():
+			# Corpo de um cliente: o histórico é gravado em _on_synchronized,
+			# com o carimbo que veio no mesmo pacote.
+			if _server_accepts_move(value):
+				net_position = value
 			return
 		net_position = value
-		_sv_history.append([Time.get_ticks_msec(), value, net_yaw, net_crouch])
-		var oldest := Time.get_ticks_msec() - HISTORY_MSEC
-		while _sv_history.size() > 2 and int(_sv_history[0][0]) < oldest:
-			_sv_history.pop_front()
+		_record_history(Time.get_ticks_msec())
 		return
 	net_position = value
+
+
+## Só no servidor.
+func _record_history(stamp: int) -> void:
+	_sv_history.append([stamp, net_position, net_yaw, net_crouch])
+	var oldest := Time.get_ticks_msec() - HISTORY_MSEC
+	while _sv_history.size() > 2 and int(_sv_history[0][0]) < oldest:
+		_sv_history.pop_front()
 
 
 ## Recusa saltos maiores do que a velocidade máxima permite e devolve o
@@ -1124,23 +1231,39 @@ func _server_accepts_move(value: Vector3) -> bool:
 
 
 func _on_synchronized() -> void:
-	# A posição chega antes do yaw no pacote: completa a última entrada do
-	# histórico do servidor com o yaw e o agachamento do mesmo pacote.
-	if multiplayer.is_server() and not _sv_history.is_empty():
-		var last: Array = _sv_history[-1]
-		last[2] = net_yaw
-		last[3] = net_crouch
-	_snapshots.append([Time.get_ticks_msec(), net_position, net_yaw, net_pitch])
+	var stamp := net_stamp
+	if multiplayer.is_server():
+		# O carimbo vem do relógio estimado pelo cliente: só aceita um
+		# instante entre MAX_REWIND_MSEC atrás e agora, sem voltar no tempo.
+		var now := Time.get_ticks_msec()
+		stamp = clampi(stamp, now - MAX_REWIND_MSEC, now)
+		if not _sv_history.is_empty():
+			stamp = maxi(stamp, int(_sv_history[-1][0]))
+		_record_history(stamp)
+	if not _snapshots.is_empty() and stamp <= int(_snapshots[-1][0]):
+		return
+	_snapshots.append([stamp, net_position, net_yaw, net_pitch])
 	if _snapshots.size() > 32:
 		_snapshots.pop_front()
+	if NetworkManager.clock_ready():
+		var late := clampi(NetworkManager.server_msec() - stamp, 0, MAX_REWIND_MSEC)
+		_late_msec = maxf(late, lerpf(_late_msec, late, LATE_DECAY))
 
 
-## Desenha os remotos INTERP_DELAY_MSEC no passado, entre os dois estados
-## recebidos que cercam esse instante.
+## Atraso da interpolação dos remotos agora (ms).
+static func render_delay_msec() -> int:
+	return maxi(INTERP_MIN_DELAY_MSEC, roundi(_late_msec) + SYNC_INTERVAL_MSEC + INTERP_MARGIN_MSEC)
+
+
+## Desenha os remotos um pouco no passado (no relógio do servidor), entre os
+## dois estados recebidos que cercam esse instante.
 func _interpolate_remote() -> void:
 	if _snapshots.is_empty():
 		return
-	var render_msec := Time.get_ticks_msec() - INTERP_DELAY_MSEC
+	if not NetworkManager.clock_ready():
+		_snapshots = [_snapshots[-1]]
+	var render_msec := NetworkManager.server_msec() - render_delay_msec()
+	view_msec = render_msec
 	while _snapshots.size() > 2 and int(_snapshots[1][0]) <= render_msec:
 		_snapshots.pop_front()
 	var a: Array = _snapshots[0]
