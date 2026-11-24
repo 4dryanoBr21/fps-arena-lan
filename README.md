@@ -162,6 +162,7 @@ Para publicar uma versão: gere os três builds, crie a tag `vX.Y.Z` e a Release
 variável do repositório `CI_RELEASE` for `true` (e com os segredos da chave Android); os builds
 dele saem sem shaders pré-compilados, porque o runner não tem placa de vídeo.
 
-O build Android precisa do Android SDK (`~/Android/Sdk`) e de uma chave de assinatura
+O build Android precisa do Java 17, do Android SDK (`~/Android/Sdk` no Linux,
+`%LOCALAPPDATA%\Android\Sdk` no Windows) e de uma chave de assinatura
 (veja o cabeçalho de `export_android.sh`). Detalhes para jogadores em `LEIA-ME Windows.txt`,
 `LEIA-ME Linux.txt`, `LEIA-ME Android.txt` e `LEIA-ME Web.txt`.
